@@ -51,7 +51,8 @@ fi
 print_status "Building React application..."
 npm run build
 
-if [ ! -d "build" ]; then
+# Check if build was successful by looking for the build directory
+if [ ! -d "frontend/build" ]; then
     echo "❌ Build failed. Please check for errors above."
     exit 1
 fi
