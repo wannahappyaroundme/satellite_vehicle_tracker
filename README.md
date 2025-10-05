@@ -1,5 +1,7 @@
 # Satellite Vehicle Tracker
 
+thanks to Cursor & gemini
+
 A comprehensive satellite imagery analysis platform that detects vehicles, analyzes storage potential, and provides interactive mapping capabilities.
 
 ## Features
