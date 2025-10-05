@@ -24,6 +24,14 @@ jobs:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: package-lock.json
+
+    - name: Install GDAL system library
+      run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev
+      
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
     
     - name: Install Python dependencies
       run: |
