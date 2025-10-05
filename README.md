@@ -253,7 +253,16 @@ satellite_project/
 4. Set up SSL certificates
 5. Use process manager (PM2, systemd)
 
-### Docker Deployment
+### GitHub Pages Deployment (Frontend Only)
+```bash
+# Quick deploy to GitHub Pages
+./deploy_gh_pages.sh
+
+# Manual deploy
+cd frontend && npm run deploy
+```
+
+### Docker Deployment (Full Stack)
 ```bash
 # Build and run with Docker Compose
 ./deploy.sh
