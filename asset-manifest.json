@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/satellite-vehicle-tracker/static/css/main.8eaf6cbc.css",
+    "main.js": "/satellite-vehicle-tracker/static/js/main.80b2e8e7.js",
+    "index.html": "/satellite-vehicle-tracker/index.html",
+    "main.8eaf6cbc.css.map": "/satellite-vehicle-tracker/static/css/main.8eaf6cbc.css.map",
+    "main.80b2e8e7.js.map": "/satellite-vehicle-tracker/static/js/main.80b2e8e7.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.8eaf6cbc.css",
+    "static/js/main.80b2e8e7.js"
+  ]
+}
