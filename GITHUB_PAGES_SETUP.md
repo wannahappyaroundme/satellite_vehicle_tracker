@@ -45,9 +45,6 @@ git push -u origin main
 
 #### Option B: Manual Deploy
 ```bash
-# Navigate to frontend directory
-cd frontend
-
 # Install dependencies
 npm install
 
@@ -68,7 +65,7 @@ https://YOUR_USERNAME.github.io/satellite-vehicle-tracker
 ## 🔧 Configuration Details
 
 ### Frontend Configuration
-The `frontend/package.json` has been configured with:
+The `package.json` has been configured with:
 ```json
 {
   "homepage": "https://YOUR_USERNAME.github.io/satellite-vehicle-tracker",
@@ -80,7 +77,7 @@ The `frontend/package.json` has been configured with:
 ```
 
 ### API Configuration
-Update the API URL in `frontend/src/services/api.ts`:
+Update the API URL in `src/services/api.ts`:
 ```typescript
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 

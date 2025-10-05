@@ -21,7 +21,7 @@ print_warning() {
 }
 
 # Check if we're in the right directory
-if [ ! -f "frontend/package.json" ]; then
+if [ ! -f "package.json" ]; then
     echo "❌ Please run this script from the project root directory"
     exit 1
 fi
@@ -40,7 +40,6 @@ if ! git remote get-url origin >/dev/null 2>&1; then
 fi
 
 print_status "Building frontend application..."
-cd frontend
 
 # Install dependencies if needed
 if [ ! -d "node_modules" ]; then
@@ -81,4 +80,4 @@ else
     exit 1
 fi
 
-cd ..
+# Script completed
