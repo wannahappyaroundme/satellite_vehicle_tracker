@@ -8,6 +8,7 @@ import UploadPanel from './components/UploadPanel';
 import VehicleList from './components/VehicleList';
 import StorageAnalysis from './components/StorageAnalysis';
 import LongTermDetector from './components/LongTermDetector';
+import VehicleHoverCard from './components/VehicleHoverCard';
 import { VehicleData, StorageAnalysisData } from './types';
 
 // Fix for default markers in react-leaflet
@@ -130,6 +131,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.0060]); // NYC default
   const [mapZoom, setMapZoom] = useState(13);
+  const [hoveredVehicle, setHoveredVehicle] = useState<VehicleData | null>(null);
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
 
   const handleVehicleSearch = (searchResults: VehicleData[]) => {
     setVehicles(searchResults);
@@ -265,16 +268,36 @@ const App: React.FC = () => {
                 icon={L.divIcon({
                   className: 'vehicle-marker',
                   html: `<div style="
-                    background: ${vehicle.type === 'aircraft' ? '#e74c3c' : '#3498db'};
+                    background: ${vehicle.type === 'aircraft' ? '#e74c3c' : 
+                               vehicle.type === 'suv' ? '#e74c3c' :
+                               vehicle.type === 'truck' ? '#9b59b6' :
+                               vehicle.type === 'sports' ? '#f39c12' :
+                               '#3498db'};
                     width: 12px;
                     height: 12px;
                     border-radius: 50%;
                     border: 2px solid white;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                    transition: transform 0.2s ease;
                   "></div>`,
                   iconSize: [16, 16],
                   iconAnchor: [8, 8]
                 })}
+                eventHandlers={{
+                  mouseover: (e) => {
+                    const containerPoint = e.containerPoint;
+                    setHoverPosition({ x: containerPoint.x + 10, y: containerPoint.y - 10 });
+                    setHoveredVehicle(vehicle);
+                  },
+                  mouseout: () => {
+                    setHoveredVehicle(null);
+                  },
+                  click: () => {
+                    setMapCenter([vehicle.latitude, vehicle.longitude]);
+                    setMapZoom(16);
+                  }
+                }}
               >
                 <Popup>
                   <div>
@@ -329,6 +352,13 @@ const App: React.FC = () => {
             Processing satellite imagery...
           </LoadingOverlay>
         )}
+
+        {/* Vehicle Hover Card */}
+        <VehicleHoverCard
+          vehicle={hoveredVehicle!}
+          visible={!!hoveredVehicle}
+          position={hoverPosition}
+        />
       </ContentArea>
     </AppContainer>
   );

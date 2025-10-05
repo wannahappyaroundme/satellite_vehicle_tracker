@@ -13,6 +13,8 @@ from models import db, Vehicle, VehicleLocation, StorageAnalysis
 from vehicle_detector import VehicleDetector
 from storage_analyzer import StorageAnalyzer
 from long_term_detector import LongTermStoppedVehicleDetector
+from vehicle_classifier import AdvancedVehicleClassifier
+from south_korea_satellite import SouthKoreaSatelliteService
 from config import Config
 
 app = Flask(__name__)
@@ -26,6 +28,8 @@ db.init_app(app)
 vehicle_detector = VehicleDetector()
 storage_analyzer = StorageAnalyzer()
 long_term_detector = LongTermStoppedVehicleDetector()
+vehicle_classifier = AdvancedVehicleClassifier()
+satellite_service = SouthKoreaSatelliteService()
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -50,14 +54,33 @@ def upload_image():
         # Detect vehicles
         detections = vehicle_detector.detect_vehicles(image_np)
         
+        # Enhanced classification for each detection
+        enhanced_detections = []
+        for detection in detections:
+            # Get detailed classification
+            detailed_classification = vehicle_classifier.classify_vehicle_detailed(image_np, detection)
+            
+            # Calculate coordinates
+            vehicle_lat = coordinates['lat'] + (detection['y'] - image_np.shape[0]/2) * 0.0001
+            vehicle_lng = coordinates['lng'] + (detection['x'] - image_np.shape[1]/2) * 0.0001
+            
+            # Create enhanced detection
+            enhanced_detection = {
+                **detection,
+                'classification': detailed_classification,
+                'latitude': vehicle_lat,
+                'longitude': vehicle_lng
+            }
+            enhanced_detections.append(enhanced_detection)
+        
         # Save vehicle locations to database
         vehicle_locations = []
-        for detection in detections:
+        for detection in enhanced_detections:
             location = VehicleLocation(
-                latitude=coordinates['lat'] + (detection['y'] - image_np.shape[0]/2) * 0.0001,
-                longitude=coordinates['lng'] + (detection['x'] - image_np.shape[1]/2) * 0.0001,
-                confidence=detection['confidence'],
-                vehicle_type=detection['class'],
+                latitude=detection['latitude'],
+                longitude=detection['longitude'],
+                confidence=detection['classification']['overall_confidence'],
+                vehicle_type=detection['classification']['vehicle_type'],
                 timestamp=datetime.now(),
                 image_coords={'x': detection['x'], 'y': detection['y']}
             )
@@ -67,15 +90,16 @@ def upload_image():
         db.session.commit()
         
         return jsonify({
-            "detections": len(detections),
+            "detections": len(enhanced_detections),
             "vehicles": [{
                 "id": loc.id,
                 "latitude": loc.latitude,
                 "longitude": loc.longitude,
                 "confidence": loc.confidence,
                 "type": loc.vehicle_type,
-                "timestamp": loc.timestamp.isoformat()
-            } for loc in vehicle_locations]
+                "timestamp": loc.timestamp.isoformat(),
+                "classification": enhanced_detections[i]['classification'] if i < len(enhanced_detections) else None
+            } for i, loc in enumerate(vehicle_locations)]
         })
         
     except Exception as e:
@@ -312,6 +336,91 @@ def get_area_summary():
                     storage_analysis["storage_potential"] > 40
                 ) else "LOW"
             }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/south-korea/coverage', methods=['GET'])
+def get_south_korea_coverage():
+    """Get satellite imagery coverage for South Korea locations"""
+    try:
+        lat = float(request.args.get('lat'))
+        lng = float(request.args.get('lng'))
+        radius = float(request.args.get('radius', 1.0))
+        
+        coverage = satellite_service.get_south_korea_coverage(lat, lng, radius)
+        return jsonify(coverage)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/south-korea/imagery', methods=['GET'])
+def get_recent_imagery():
+    """Get recent satellite imagery for South Korea locations"""
+    try:
+        lat = float(request.args.get('lat'))
+        lng = float(request.args.get('lng'))
+        days_back = int(request.args.get('days_back', 30))
+        
+        imagery = satellite_service.get_recent_imagery(lat, lng, days_back)
+        return jsonify({
+            "location": {"latitude": lat, "longitude": lng},
+            "days_back": days_back,
+            "imagery_count": len(imagery),
+            "imagery": imagery
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/south-korea/cities', methods=['GET'])
+def get_cities_coverage():
+    """Get satellite coverage for major South Korean cities"""
+    try:
+        coverage = satellite_service.get_major_cities_coverage()
+        return jsonify(coverage)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/south-korea/download-guide', methods=['GET'])
+def get_download_guide():
+    """Get instructions for downloading satellite imagery"""
+    try:
+        guide = satellite_service.get_download_instructions()
+        return jsonify(guide)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/vehicle/<int:vehicle_id>/details', methods=['GET'])
+def get_vehicle_details(vehicle_id):
+    """Get detailed vehicle information including classification and parking duration"""
+    try:
+        vehicle = VehicleLocation.query.get(vehicle_id)
+        if not vehicle:
+            return jsonify({"error": "Vehicle not found"}), 404
+        
+        # Find similar vehicles for parking duration analysis
+        radius = 0.001  # ~100m radius
+        similar_vehicles = VehicleLocation.query.filter(
+            VehicleLocation.vehicle_type == vehicle.vehicle_type,
+            VehicleLocation.latitude.between(vehicle.latitude - radius, vehicle.latitude + radius),
+            VehicleLocation.longitude.between(vehicle.longitude - radius, vehicle.longitude + radius)
+        ).order_by(VehicleLocation.timestamp).all()
+        
+        # Analyze parking duration
+        parking_analysis = vehicle_classifier.get_parking_duration_analysis(
+            str(vehicle_id), 
+            [v.to_dict() for v in similar_vehicles]
+        )
+        
+        return jsonify({
+            "vehicle": vehicle.to_dict(),
+            "parking_analysis": parking_analysis,
+            "similar_vehicles_count": len(similar_vehicles),
+            "analysis_timestamp": datetime.now().isoformat()
         })
         
     except Exception as e:

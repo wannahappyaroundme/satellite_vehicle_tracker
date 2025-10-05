@@ -82,6 +82,41 @@ export const getAreaSummary = async (params: {
   return response.data;
 };
 
+// South Korea satellite data
+export const getSouthKoreaCoverage = async (params: {
+  lat: number;
+  lng: number;
+  radius?: number;
+}) => {
+  const response = await api.get('/south-korea/coverage', { params });
+  return response.data;
+};
+
+export const getRecentImagery = async (params: {
+  lat: number;
+  lng: number;
+  days_back?: number;
+}) => {
+  const response = await api.get('/south-korea/imagery', { params });
+  return response.data;
+};
+
+export const getCitiesCoverage = async () => {
+  const response = await api.get('/south-korea/cities');
+  return response.data;
+};
+
+export const getDownloadGuide = async () => {
+  const response = await api.get('/south-korea/download-guide');
+  return response.data;
+};
+
+// Vehicle details
+export const getVehicleDetails = async (vehicleId: number) => {
+  const response = await api.get(`/vehicle/${vehicleId}/details`);
+  return response.data;
+};
+
 // Health check
 export const healthCheck = async () => {
   const response = await api.get('/health');

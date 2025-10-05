@@ -154,6 +154,20 @@ setup_windows.bat
 4. Review risk assessments and alerts
 5. Use "Get Area Summary" for comprehensive analysis
 
+### 🇰🇷 South Korea Satellite Data Integration
+1. Use the South Korea-specific satellite data sources
+2. Access KOMPSAT, Sentinel-2, and Landsat imagery
+3. Get coverage information for major Korean cities
+4. Download satellite imagery for specific locations
+5. View real-time satellite pass predictions
+
+### 🎯 Airbnb-Style Vehicle Details
+1. Hover over any vehicle marker on the map
+2. View detailed vehicle information in a beautiful popup card
+3. See vehicle type classification (SUV, sedan, truck, etc.)
+4. Check parking duration and risk assessment
+5. View confidence percentages and detailed analytics
+
 ## API Endpoints
 
 ### Vehicle Detection
@@ -168,6 +182,15 @@ setup_windows.bat
 - `GET /api/long-term-stopped` - Detect long-term stopped vehicles
 - `GET /api/vehicle-history/<id>` - Get movement history for a vehicle
 - `GET /api/area-summary` - Get comprehensive area analysis
+
+### South Korea Satellite Data
+- `GET /api/south-korea/coverage` - Get satellite coverage for Korean locations
+- `GET /api/south-korea/imagery` - Get recent satellite imagery
+- `GET /api/south-korea/cities` - Get coverage for major Korean cities
+- `GET /api/south-korea/download-guide` - Get download instructions
+
+### Vehicle Details
+- `GET /api/vehicle/<id>/details` - Get detailed vehicle information with classification
 
 ### System
 - `GET /api/health` - Health check endpoint
@@ -271,10 +294,14 @@ For questions and support:
 
 ### ✅ Implemented Features:
 - **AI-Powered Detection**: Advanced algorithms to identify vehicles that haven't moved for extended periods
+- **Advanced Vehicle Classification**: Detect specific vehicle types (SUV, sedan, truck, sports car, etc.)
 - **Risk Assessment**: Automatic risk scoring (LOW/MEDIUM/HIGH) based on multiple factors
 - **Clustering Analysis**: Group nearby stopped vehicles to identify problem areas
 - **Movement Pattern Analysis**: Track vehicle behavior over time to detect stopping patterns
 - **Alert System**: Generate alerts for concerning stop patterns
+- **Airbnb-Style UI**: Beautiful hover cards with detailed vehicle information
+- **South Korea Integration**: Access to KOMPSAT, Sentinel-2, and Landsat satellite data
+- **Parking Duration Tracking**: Real-time analysis of how long vehicles have been parked
 - **Public Access**: No login required - anyone can access and analyze areas
 - **Cross-Platform**: Works on both Mac and Windows with one-click setup
 
@@ -284,6 +311,10 @@ For questions and support:
 - **Confidence Scoring**: AI confidence levels for each detection
 - **Historical Analysis**: Analyze up to 30 days of vehicle data
 - **Geographic Clustering**: Identify clusters of stopped vehicles in specific areas
+- **Vehicle Type Classification**: Distinguish between SUV, sedan, truck, sports car, van, pickup, etc.
+- **Korean Brand Recognition**: Detect Hyundai, Kia, Genesis, and other Korean vehicle brands
+- **Color Analysis**: Identify vehicle colors (white, black, red, blue, etc.)
+- **Size Category Detection**: Classify vehicles as small, medium, or large
 
 ### 🚨 Alert Types:
 - **Long-Term Stop Alerts**: Vehicles stopped for extended periods
