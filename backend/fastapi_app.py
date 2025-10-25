@@ -19,6 +19,7 @@ from abandoned_vehicle_detector import AbandonedVehicleDetector
 from pdf_processor import PDFProcessor
 from ngii_api_service import NGIIAPIService
 from demo_mode import get_demo_coordinates, get_demo_analysis_result
+from aerial_image_cache import get_cache
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -371,6 +372,9 @@ async def get_statistics():
     """
     Get system statistics
     """
+    cache = get_cache()
+    cache_stats = cache.get_stats()
+
     return {
         "system": {
             "model": "ResNet50",
@@ -381,7 +385,56 @@ async def get_statistics():
             "total_analyses": 0,  # Would come from database
             "abandoned_vehicles_detected": 0,
             "areas_monitored": 1
-        }
+        },
+        "cache": cache_stats
+    }
+
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """
+    캐시 통계 조회
+
+    Returns:
+        캐시 히트율, 저장된 이미지 수, 디스크 사용량 등
+    """
+    cache = get_cache()
+    return cache.get_stats()
+
+
+@app.post("/api/cache/cleanup")
+async def cleanup_cache():
+    """
+    만료된 캐시 정리 (24시간 이상 지난 항목)
+
+    Returns:
+        삭제된 캐시 개수
+    """
+    cache = get_cache()
+    deleted_count = cache.cleanup_expired()
+
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"{deleted_count}개의 만료된 캐시를 삭제했습니다"
+    }
+
+
+@app.delete("/api/cache/clear")
+async def clear_all_cache():
+    """
+    모든 캐시 삭제 (주의: 복구 불가능)
+
+    Returns:
+        삭제된 캐시 개수
+    """
+    cache = get_cache()
+    deleted_count = cache.clear_all()
+
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"모든 캐시({deleted_count}개)를 삭제했습니다"
     }
 
 

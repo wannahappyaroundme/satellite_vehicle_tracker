@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 import io
 from dotenv import load_dotenv
+from aerial_image_cache import get_cache
 
 load_dotenv()
 
@@ -23,7 +24,7 @@ class NGIIAPIService:
     항공사진, 주소 검색 등의 기능 제공
     """
 
-    def __init__(self):
+    def __init__(self, enable_cache: bool = True):
         self.api_key = os.getenv('NGII_API_KEY', '')
         if not self.api_key or self.api_key == '여기에_발급받은_API_키를_입력하세요':
             print("⚠️  경고: NGII API 키가 설정되지 않았습니다!")
@@ -34,6 +35,12 @@ class NGIIAPIService:
         self.geocode_url = f"{self.base_url}/address"
         self.aerial_url = f"{self.base_url}/wms"
         self.wmts_base_url = "https://api.vworld.kr/req/wmts/1.0.0"
+
+        # 캐싱 활성화
+        self.enable_cache = enable_cache
+        self.cache = get_cache() if enable_cache else None
+        if self.enable_cache:
+            print("✅ 항공사진 캐싱 시스템 활성화 (24시간 TTL, 최대 5GB)")
 
     def search_address(
         self,
@@ -396,10 +403,12 @@ class NGIIAPIService:
         width_tiles: int = 3,
         height_tiles: int = 3,
         zoom: int = 18,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
+        use_cache: bool = True
     ) -> Dict:
         """
         여러 타일을 다운로드하여 넓은 영역의 고해상도 항공사진 생성
+        24시간 캐싱으로 API 호출 최소화
 
         Args:
             latitude: 중심 위도
@@ -408,11 +417,39 @@ class NGIIAPIService:
             height_tiles: 세로 타일 수 (홀수 권장)
             zoom: 확대 레벨 (18-19 권장)
             output_path: 저장 경로
+            use_cache: 캐시 사용 여부
 
         Returns:
             다운로드 결과 (병합된 이미지)
         """
         try:
+            # 캐시 확인
+            if self.enable_cache and use_cache and self.cache:
+                cached_data = self.cache.get(latitude, longitude, zoom, width_tiles, height_tiles)
+                if cached_data:
+                    # 캐시 히트!
+                    image = Image.open(io.BytesIO(cached_data))
+
+                    result = {
+                        'success': True,
+                        'tiles_downloaded': 0,  # 캐시에서 가져옴
+                        'image_size': image.size,
+                        'zoom': zoom,
+                        'coordinates': {
+                            'latitude': latitude,
+                            'longitude': longitude
+                        },
+                        'from_cache': True
+                    }
+
+                    if output_path:
+                        with open(output_path, 'wb') as f:
+                            f.write(cached_data)
+                        result['path'] = output_path
+                    else:
+                        result['image_array'] = np.array(image)
+
+                    return result
             # 중심 타일 좌표
             center_x, center_y = self.lat_lon_to_tile(latitude, longitude, zoom)
 
@@ -463,11 +500,29 @@ class NGIIAPIService:
                 'coordinates': {
                     'latitude': latitude,
                     'longitude': longitude
-                }
+                },
+                'from_cache': False
             }
 
+            # 이미지를 JPEG 바이트로 변환
+            image_buffer = io.BytesIO()
+            merged_image.save(image_buffer, 'JPEG', quality=95)
+            image_bytes = image_buffer.getvalue()
+
+            # 캐시에 저장
+            if self.enable_cache and use_cache and self.cache:
+                self.cache.set(
+                    latitude, longitude, zoom, image_bytes,
+                    width_tiles, height_tiles,
+                    metadata={
+                        'image_size': (merged_width, merged_height),
+                        'api': 'vworld_wmts'
+                    }
+                )
+
             if output_path:
-                merged_image.save(output_path, 'JPEG', quality=95)
+                with open(output_path, 'wb') as f:
+                    f.write(image_bytes)
                 result['path'] = output_path
             else:
                 result['image_array'] = np.array(merged_image)
