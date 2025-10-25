@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, AlertTriangle, MapPin, Calendar } from 'lucide-react';
+import { TrendingUp, AlertTriangle, MapPin, Calendar, Download } from 'lucide-react';
 
 interface VehicleStats {
   total: number;
@@ -47,6 +47,43 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({ vehicles }) =
     byRegion: [], // TODO: 지역별 집계 (현재는 더미 데이터)
   };
 
+  // CSV 내보내기 함수
+  const exportToCSV = () => {
+    // CSV 헤더
+    const headers = ['차량ID', '위도', '경도', '차량타입', '위험도', '유사도(%)', '년수차이'];
+
+    // CSV 데이터 행
+    const rows = vehicles.map((v, index) => [
+      v.id || `vehicle_${index + 1}`,
+      v.latitude.toFixed(6),
+      v.longitude.toFixed(6),
+      v.vehicle_type || 'unknown',
+      v.risk_level,
+      ((v as any).similarity_percentage || 0).toFixed(2),
+      (v as any).years_difference || 0
+    ]);
+
+    // CSV 문자열 생성 (UTF-8 BOM 추가 for Excel 한글 지원)
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Blob 생성 및 다운로드
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `abandoned_vehicles_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // 위험도별 데이터 (파이 차트용)
   const riskLevelData = [
     { name: 'CRITICAL', value: stats.byRiskLevel.CRITICAL, color: '#DC2626' },
@@ -84,11 +121,17 @@ const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({ vehicles }) =
   return (
     <Container>
       <Header>
-        <Title>
-          <TrendingUp size={28} />
-          방치 차량 통계 대시보드
-        </Title>
-        <Subtitle>전체 {stats.total}대 발견</Subtitle>
+        <HeaderLeft>
+          <Title>
+            <TrendingUp size={28} />
+            방치 차량 통계 대시보드
+          </Title>
+          <Subtitle>전체 {stats.total}대 발견</Subtitle>
+        </HeaderLeft>
+        <ExportButton onClick={exportToCSV}>
+          <Download size={20} />
+          CSV 내보내기
+        </ExportButton>
       </Header>
 
       {/* 요약 카드 */}
@@ -325,7 +368,50 @@ const Container = styled.div`
 `;
 
 const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 30px;
+  gap: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const HeaderLeft = styled.div`
+  flex: 1;
+`;
+
+const ExportButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: center;
+  }
 `;
 
 const Title = styled.h2`

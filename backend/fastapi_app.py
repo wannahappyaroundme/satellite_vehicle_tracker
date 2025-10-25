@@ -20,6 +20,8 @@ from pdf_processor import PDFProcessor
 from ngii_api_service import NGIIAPIService
 from demo_mode import get_demo_coordinates, get_demo_analysis_result
 from aerial_image_cache import get_cache
+from logging_config import setup_logging, PerformanceLogger, SecurityLogger, log_performance
+from security import rate_limiter, InputValidator, DataProtection, SQLSafetyChecker
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -77,13 +79,100 @@ async def global_exception_handler(request, exc):
         }
     )
 
+# Initialize logging
+setup_logging(
+    log_level='INFO',
+    log_file='logs/fastapi.log',
+    json_format=True
+)
+
+# Initialize loggers
+perf_logger = PerformanceLogger()
+security_logger = SecurityLogger()
+
 # Initialize services
 detector = AbandonedVehicleDetector(similarity_threshold=0.90)
 pdf_processor = PDFProcessor(dpi=300)
 ngii_service = NGIIAPIService()
 
+# Input validator
+validator = InputValidator()
+
 # Store uploaded files temporarily
 UPLOAD_DIR = tempfile.mkdtemp()
+
+# Create logs directory
+os.makedirs('logs', exist_ok=True)
+
+
+# Rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """
+    전역 Rate Limiting 미들웨어
+    """
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Rate limit 확인 (일반 엔드포인트: 분당 100회)
+    if rate_limiter.is_rate_limited(client_ip, max_requests=100, window_seconds=60):
+        security_logger.log_rate_limit(client_ip, str(request.url), 100)
+
+        return JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "error": {
+                    "type": "RateLimitExceeded",
+                    "message_en": "Too many requests. Please try again later.",
+                    "message_ko": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+                    "retry_after_seconds": 300
+                }
+            }
+        )
+
+    response = await call_next(request)
+    return response
+
+
+# Request logging middleware
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    """
+    요청 로깅 미들웨어
+    """
+    import time
+
+    start_time = time.time()
+    client_ip = request.client.host if request.client else "unknown"
+
+    try:
+        response = await call_next(request)
+        duration_ms = (time.time() - start_time) * 1000
+
+        # API 요청 로깅
+        perf_logger.log_request(
+            endpoint=str(request.url.path),
+            method=request.method,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+            user_id=client_ip
+        )
+
+        return response
+
+    except Exception as e:
+        duration_ms = (time.time() - start_time) * 1000
+
+        # 에러 로깅
+        perf_logger.log_request(
+            endpoint=str(request.url.path),
+            method=request.method,
+            status_code=500,
+            duration_ms=duration_ms,
+            user_id=client_ip
+        )
+
+        raise
 
 
 # Pydantic models
@@ -619,7 +708,52 @@ async def demo_analyze_location(
     """
     🎭 데모 모드: 방치 차량 분석 (API 키 불필요)
     Mock 데이터로 방치 차량 생성
+
+    보안:
+    - 좌표 유효성 검증
+    - 주소 새니타이징 (XSS 방지)
+    - SQL Injection 패턴 감지
     """
+    # 입력 검증
+    if not validator.validate_coordinates(latitude, longitude):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Invalid coordinates",
+                "error_ko": "유효하지 않은 좌표입니다.",
+                "latitude_range": "(-90, 90)",
+                "longitude_range": "(-180, 180)"
+            }
+        )
+
+    # 주소 새니타이징
+    address = validator.sanitize_string(address, max_length=200)
+
+    # SQL Injection 패턴 감지
+    if SQLSafetyChecker.is_sql_injection(address):
+        security_logger.log_suspicious_activity(
+            ip_address="unknown",
+            activity="sql_injection_attempt",
+            details={"address": address}
+        )
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Invalid input detected",
+                "error_ko": "유효하지 않은 입력이 감지되었습니다."
+            }
+        )
+
+    # 주소 형식 검증
+    if not validator.validate_korean_address(address):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Invalid address format",
+                "error_ko": "주소 형식이 올바르지 않습니다."
+            }
+        )
+
     result = get_demo_analysis_result(latitude, longitude, address)
     return result
 
