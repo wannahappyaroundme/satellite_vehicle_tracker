@@ -155,7 +155,8 @@ const MainDetectionPage: React.FC = () => {
 
         const modeMsg = USE_DEMO_MODE ? ' 🎭 (데모 모드)' : '';
         setStatusMessage(`위치 찾음: ${displayAddress}${modeMsg}`);
-        setAnalyzed(false);
+        // Reset vehicle display when searching new location
+        setShowVehicles(false);
         setVehicles([]);
       } else {
         setStatusMessage(`주소를 찾을 수 없습니다: ${response.data.error}`);
