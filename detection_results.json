@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "image1": {
+      "filename": "sample_image1.pdf",
+      "agency": "국토지리정보원",
+      "year": 2015,
+      "location": "제주특별자치도 제주시 일도이동 923",
+      "date": "2015-04-17"
+    },
+    "image2": {
+      "filename": "sample_image2.pdf",
+      "agency": "국토지리정보원",
+      "year": 2020,
+      "location": "제주특별자치도 제주시 일도이동 923",
+      "date": "2020-04-29"
+    }
+  },
+  "full_image_result": {
+    "parking_space_id": "full_image",
+    "year1": 2015,
+    "year2": 2020,
+    "years_difference": 5,
+    "similarity_score": 0.823,
+    "similarity_percentage": 82.3,
+    "threshold": 0.9,
+    "is_abandoned": false,
+    "risk_level": "LOW",
+    "status": "NORMAL"
+  },
+  "parking_space_results": [
+    {
+      "parking_space_id": "vehicle_0",
+      "year1": 2015,
+      "year2": 2020,
+      "years_difference": 5,
+      "similarity_score": 0.6288,
+      "similarity_percentage": 62.88,
+      "threshold": 0.9,
+      "is_abandoned": false,
+      "risk_level": "LOW",
+      "status": "NORMAL",
+      "bbox": {
+        "x": 2021,
+        "y": 2198,
+        "w": 135,
+        "h": 104
+      }
+    },
+    {
+      "parking_space_id": "vehicle_1",
+      "year1": 2015,
+      "year2": 2020,
+      "years_difference": 5,
+      "similarity_score": 0.5433,
+      "similarity_percentage": 54.33,
+      "threshold": 0.9,
+      "is_abandoned": false,
+      "risk_level": "LOW",
+      "status": "NORMAL",
+      "bbox": {
+        "x": 1590,
+        "y": 768,
+        "w": 88,
+        "h": 71
+      }
+    },
+    {
+      "parking_space_id": "vehicle_2",
+      "year1": 2015,
+      "year2": 2020,
+      "years_difference": 5,
+      "similarity_score": 0.8411,
+      "similarity_percentage": 84.11,
+      "threshold": 0.9,
+      "is_abandoned": false,
+      "risk_level": "LOW",
+      "status": "NORMAL",
+      "bbox": {
+        "x": 124,
+        "y": 124,
+        "w": 2236,
+        "h": 2764
+      }
+    }
+  ],
+  "abandoned_vehicles": []
+}

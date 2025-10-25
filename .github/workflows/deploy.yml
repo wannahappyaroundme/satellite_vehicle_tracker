@@ -1,0 +1,60 @@
+name: CI - Test and Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+
+    - name: Install GDAL system library
+      run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev
+
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Install Node.js dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Lint Python code
+      run: |
+        pip install flake8
+        cd backend
+        python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Lint TypeScript code
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Test demo mode
+      run: |
+        cd backend
+        python -c "from demo_mode import get_demo_coordinates; print('✅ Demo mode working')"

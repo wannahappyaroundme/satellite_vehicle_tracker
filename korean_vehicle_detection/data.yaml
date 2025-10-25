@@ -1,0 +1,19 @@
+# YOLOv8 Dataset Configuration for Korean Vehicle Detection
+# Dataset: DOTA satellite imagery with vehicle annotations
+# Classes: small-vehicle, large-vehicle
+
+# Dataset root directory (absolute path)
+path: /Users/kyungsbook/Desktop/satellite_project/korean_vehicle_detection/data
+
+# Train/Val/Test splits (relative to path)
+train: train/images
+val: val/images
+test: test/images
+
+# Number of classes
+nc: 2
+
+# Class names (must match the order in COCO conversion: 0, 1, ...)
+names:
+  0: small-vehicle
+  1: large-vehicle
