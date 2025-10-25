@@ -3,7 +3,7 @@ FastAPI Backend for Abandoned Vehicle Detection System
 Analyzes aerial photos from 국토정보플랫폼 to detect long-term abandoned vehicles
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
