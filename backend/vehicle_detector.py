@@ -16,24 +16,61 @@ class VehicleDetector:
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
         
-        # Vehicle-related classes in COCO dataset
+        # Vehicle classes for abandoned vehicle detection (COCO dataset)
+        # 프로젝트 목표: 승합차/승용차 우선, 트럭/버스 포함, 기타 제외
         self.vehicle_classes = {
-            2: 'car',
-            3: 'motorcycle', 
-            5: 'bus',
-            7: 'truck',
-            9: 'traffic_light',  # Sometimes useful for context
-            15: 'cat',  # Could be misidentified vehicles
-            16: 'dog',  # Could be misidentified vehicles
+            2: 'car',     # 승합차/승용차 (우선순위)
+            5: 'bus',     # 버스
+            7: 'truck',   # 트럭
         }
-        
-        # Additional classes we might want to detect
-        self.extended_vehicle_classes = {
-            'aircraft': ['plane', 'airplane', 'helicopter', 'drone'],
-            'boat': ['ship', 'boat', 'yacht', 'ferry'],
-            'construction': ['crane', 'excavator', 'bulldozer'],
-            'emergency': ['ambulance', 'fire_truck', 'police_car']
-        }
+
+        # 차량 검증 기준
+        self.MIN_VEHICLE_AREA = 400        # 20x20 최소 크기 (픽셀²)
+        self.MAX_VEHICLE_AREA = 50000      # 너무 크면 건물일 가능성
+        self.MIN_ASPECT_RATIO = 0.5        # 너무 세로로 길면 차량 아님
+        self.MAX_ASPECT_RATIO = 4.0        # 너무 가로로 길면 차량 아님
+        self.MIN_VEHICLE_CONFIDENCE = 0.6  # 차량 최소 신뢰도 (0.5 → 0.6으로 강화)
+
+    def is_valid_vehicle(self, detection: Dict[str, Any]) -> bool:
+        """
+        차량 검증 로직: 감지된 객체가 실제 차량인지 확인
+
+        검증 기준:
+        1. 크기: 400-50000 픽셀² (너무 작거나 큰 것 제외)
+        2. 종횡비: 0.5-4.0 (비정상적 형태 제외)
+        3. 신뢰도: 0.6 이상 (낮은 확신도 제외)
+        4. 타입: car/truck/bus만 허용
+
+        Args:
+            detection: 감지된 객체 정보
+
+        Returns:
+            bool: 유효한 차량이면 True, 아니면 False
+        """
+        # 크기 검증
+        width = detection.get('width', 0)
+        height = detection.get('height', 0)
+        area = width * height
+
+        if area < self.MIN_VEHICLE_AREA or area > self.MAX_VEHICLE_AREA:
+            return False
+
+        # 종횡비 검증
+        aspect_ratio = width / height if height > 0 else 0
+        if aspect_ratio < self.MIN_ASPECT_RATIO or aspect_ratio > self.MAX_ASPECT_RATIO:
+            return False
+
+        # 신뢰도 검증
+        confidence = detection.get('confidence', 0)
+        if confidence < self.MIN_VEHICLE_CONFIDENCE:
+            return False
+
+        # 타입 검증 (car, truck, bus만 허용)
+        vehicle_type = detection.get('class', '')
+        if vehicle_type not in ['car', 'truck', 'bus']:
+            return False
+
+        return True
 
     def detect_vehicles(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """
@@ -63,15 +100,15 @@ class VehicleDetector:
                         # Check if it's a vehicle class
                         if class_id in self.vehicle_classes:
                             vehicle_type = self.vehicle_classes[class_id]
-                            
+
                             # Calculate center point
                             center_x = int((x1 + x2) / 2)
                             center_y = int((y1 + y2) / 2)
-                            
+
                             # Calculate width and height
                             width = int(x2 - x1)
                             height = int(y2 - y1)
-                            
+
                             detection = {
                                 'x': center_x,
                                 'y': center_y,
@@ -82,8 +119,10 @@ class VehicleDetector:
                                 'class_id': class_id,
                                 'bbox': [int(x1), int(y1), int(x2), int(y2)]
                             }
-                            
-                            detections.append(detection)
+
+                            # 차량 검증 로직 적용
+                            if self.is_valid_vehicle(detection):
+                                detections.append(detection)
             
             return detections
             
@@ -111,36 +150,6 @@ class VehicleDetector:
                 filtered_detections.append(detection)
         
         return filtered_detections
-
-    def detect_aircraft(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """
-        Specifically detect aircraft in satellite imagery
-        
-        Args:
-            image: Input image as numpy array
-            
-        Returns:
-            List of detected aircraft
-        """
-        # For aircraft detection, we might need a specialized model
-        # For now, we'll use the general vehicle detector and look for specific patterns
-        
-        detections = self.detect_vehicles(image)
-        aircraft_detections = []
-        
-        for detection in detections:
-            # Look for objects that might be aircraft based on size and shape
-            width = detection['width']
-            height = detection['height']
-            aspect_ratio = width / height if height > 0 else 0
-            
-            # Aircraft typically have specific aspect ratios and sizes
-            if (aspect_ratio > 1.5 or aspect_ratio < 0.6) and (width > 50 or height > 50):
-                detection['class'] = 'aircraft'
-                detection['confidence'] *= 0.8  # Reduce confidence for aircraft classification
-                aircraft_detections.append(detection)
-        
-        return aircraft_detections
 
     def get_detection_statistics(self, image: np.ndarray) -> Dict[str, Any]:
         """

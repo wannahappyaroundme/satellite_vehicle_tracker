@@ -409,7 +409,7 @@ const MainDetectionPage: React.FC = () => {
 
               <SatelliteImageContainer>
                 {selectedVehicle.latitude && selectedVehicle.longitude ? (
-                  <>
+                  <SatelliteWrapper>
                     {/* 3x3 Grid of Satellite Tiles for better coverage */}
                     <SatelliteTileGrid>
                       {(() => {
@@ -441,6 +441,37 @@ const MainDetectionPage: React.FC = () => {
                         return tiles;
                       })()}
                     </SatelliteTileGrid>
+
+                    {/* 빨간 네모 박스 오버레이 (방치 차량 표시) */}
+                    {selectedVehicle.bbox && (
+                      <BoundingBoxOverlay>
+                        <svg width="100%" height="100%" viewBox="0 0 768 768" preserveAspectRatio="none">
+                          {/* 빨간 테두리 + 반투명 배경 */}
+                          <rect
+                            x={selectedVehicle.bbox.x}
+                            y={selectedVehicle.bbox.y}
+                            width={selectedVehicle.bbox.w}
+                            height={selectedVehicle.bbox.h}
+                            fill="rgba(255, 0, 0, 0.3)"
+                            stroke="red"
+                            strokeWidth="3"
+                          />
+                          {/* "방치 차량" 라벨 */}
+                          <text
+                            x={selectedVehicle.bbox.x + selectedVehicle.bbox.w / 2}
+                            y={selectedVehicle.bbox.y - 10}
+                            fill="red"
+                            fontSize="20"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            style={{ textShadow: '0 0 4px black, 0 0 8px black' }}
+                          >
+                            방치 차량
+                          </text>
+                        </svg>
+                      </BoundingBoxOverlay>
+                    )}
+
                     <SatelliteImagePlaceholder style={{ display: 'none' }}>
                       <PlaceholderText>
                         항공사진 로드 실패
@@ -448,7 +479,7 @@ const MainDetectionPage: React.FC = () => {
                         <small>좌표: {selectedVehicle.latitude.toFixed(6)}, {selectedVehicle.longitude.toFixed(6)}</small>
                       </PlaceholderText>
                     </SatelliteImagePlaceholder>
-                  </>
+                  </SatelliteWrapper>
                 ) : (
                   <SatelliteImagePlaceholder>
                     <PlaceholderText>
@@ -846,6 +877,12 @@ const SatelliteImageContainer = styled.div`
   position: relative;
 `;
 
+const SatelliteWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+`;
+
 const SatelliteTileGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -860,6 +897,21 @@ const SatelliteTile = styled.img`
   height: 100%;
   object-fit: cover;
   display: block;
+`;
+
+const BoundingBoxOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
 `;
 
 const SatelliteImagePlaceholder = styled.div`

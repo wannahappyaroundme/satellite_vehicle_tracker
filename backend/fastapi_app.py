@@ -37,6 +37,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global exception handler (Korean error messages + contact info)
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """
+    전역 에러 핸들러 (모든 예외 처리)
+    한국어 에러 메시지 + 연락처 정보 포함
+    """
+    error_message = str(exc)
+
+    # 한국어 에러 메시지
+    korean_messages = {
+        "ConnectionError": "네트워크 연결에 실패했습니다.",
+        "TimeoutError": "요청 시간이 초과되었습니다.",
+        "FileNotFoundError": "파일을 찾을 수 없습니다.",
+        "ValueError": "잘못된 값이 입력되었습니다.",
+        "KeyError": "필수 데이터가 누락되었습니다.",
+    }
+
+    # 에러 타입에 따라 한국어 메시지 선택
+    error_type = type(exc).__name__
+    korean_message = korean_messages.get(error_type, "시스템 오류가 발생했습니다.")
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": {
+                "type": error_type,
+                "message_en": error_message,
+                "message_ko": korean_message,
+                "contact": {
+                    "email": "bu5119@hanyang.ac.kr",
+                    "phone": "010-5616-5119",
+                    "description": "문제가 지속되면 위 연락처로 문의해 주세요."
+                }
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
 # Initialize services
 detector = AbandonedVehicleDetector(similarity_threshold=0.90)
 pdf_processor = PDFProcessor(dpi=300)

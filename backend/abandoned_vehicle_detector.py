@@ -12,6 +12,8 @@ import torchvision.transforms as transforms
 from PIL import Image
 from typing import List, Dict, Tuple, Any
 from sklearn.metrics.pairwise import cosine_similarity
+from functools import lru_cache
+import hashlib
 import rasterio
 from rasterio.mask import mask
 from shapely.geometry import box, mapping
@@ -53,16 +55,41 @@ class AbandonedVehicleDetector:
             )
         ])
 
-    def extract_features(self, image: np.ndarray) -> np.ndarray:
+        # Feature extraction cache (LRU cache for performance optimization)
+        self._feature_cache = {}
+        self._cache_max_size = 100  # 최대 100개 이미지 캐싱
+
+    def _get_image_hash(self, image: np.ndarray) -> str:
+        """
+        이미지의 해시값 계산 (캐싱용)
+
+        Args:
+            image: 입력 이미지
+
+        Returns:
+            이미지 해시값 (MD5)
+        """
+        return hashlib.md5(image.tobytes()).hexdigest()
+
+    def extract_features(self, image: np.ndarray, use_cache: bool = True) -> np.ndarray:
         """
         Extract feature vector from vehicle image using ResNet
 
+        🚀 성능 최적화: LRU 캐시 적용 (동일 이미지 재분석 시 속도 향상)
+
         Args:
             image: Input image as numpy array (BGR or RGB)
+            use_cache: 캐시 사용 여부 (기본값: True)
 
         Returns:
             Feature vector as 1D numpy array (2048 dimensions for ResNet50)
         """
+        # 캐시 확인 (동일 이미지 재분석 시 캐시 사용)
+        if use_cache:
+            image_hash = self._get_image_hash(image)
+            if image_hash in self._feature_cache:
+                return self._feature_cache[image_hash]
+
         # Convert BGR to RGB if needed
         if len(image.shape) == 3 and image.shape[2] == 3:
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -81,6 +108,14 @@ class AbandonedVehicleDetector:
 
         # Flatten and convert to numpy
         features = features.squeeze().cpu().numpy()
+
+        # 캐시 저장 (LRU 방식: 오래된 항목 자동 삭제)
+        if use_cache:
+            if len(self._feature_cache) >= self._cache_max_size:
+                # 가장 오래된 항목 삭제 (FIFO)
+                oldest_key = next(iter(self._feature_cache))
+                del self._feature_cache[oldest_key]
+            self._feature_cache[image_hash] = features
 
         return features
 
