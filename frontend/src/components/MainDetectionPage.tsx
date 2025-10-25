@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, RefreshCw, Loader, MapPin } from 'lucide-react';
+import { Search, RefreshCw, Loader, MapPin, BarChart3 } from 'lucide-react';
 import axios from 'axios';
+import StatisticsDashboard from './StatisticsDashboard';
 
 const API_BASE_URL = process.env.REACT_APP_FASTAPI_URL || 'http://localhost:8000/api';
 const USE_DEMO_MODE = true; // 🎭 데모 모드 활성화 (API 키 불필요)
@@ -87,6 +88,7 @@ const MainDetectionPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<AbandonedVehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<AbandonedVehicle | null>(null);
   const [showSatellitePopup, setShowSatellitePopup] = useState(false);
+  const [showStatsDashboard, setShowStatsDashboard] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [currentAddress, setCurrentAddress] = useState(''); // 실시간 주소
@@ -290,17 +292,25 @@ const MainDetectionPage: React.FC = () => {
             위치 검색
           </SearchButton>
 
-          {!analyzed ? (
-            <AnalyzeButton onClick={handleAnalyze} disabled={!mapCenter[0] || analyzing || loading}>
-              {analyzing ? <Loader size={20} className="spin" /> : <Search size={20} />}
-              {analyzing ? '분석 중...' : '방치 차량 분석'}
-            </AnalyzeButton>
-          ) : (
-            <UpdateButton onClick={handleAnalyze} disabled={analyzing}>
-              {analyzing ? <Loader size={20} className="spin" /> : <RefreshCw size={20} />}
-              {analyzing ? '분석 중...' : '업데이트'}
-            </UpdateButton>
-          )}
+          <ButtonGroup>
+            {!analyzed ? (
+              <AnalyzeButton onClick={handleAnalyze} disabled={!mapCenter[0] || analyzing || loading}>
+                {analyzing ? <Loader size={20} className="spin" /> : <Search size={20} />}
+                {analyzing ? '분석 중...' : '방치 차량 분석'}
+              </AnalyzeButton>
+            ) : (
+              <>
+                <UpdateButton onClick={handleAnalyze} disabled={analyzing}>
+                  {analyzing ? <Loader size={20} className="spin" /> : <RefreshCw size={20} />}
+                  {analyzing ? '분석 중...' : '업데이트'}
+                </UpdateButton>
+                <StatsButton onClick={() => setShowStatsDashboard(true)} disabled={vehicles.length === 0}>
+                  <BarChart3 size={20} />
+                  통계 대시보드
+                </StatsButton>
+              </>
+            )}
+          </ButtonGroup>
         </SearchControls>
 
         {statusMessage && (
@@ -493,6 +503,25 @@ const MainDetectionPage: React.FC = () => {
             </PopupBody>
           </PopupWindow>
         </SatellitePopup>
+      )}
+
+      {/* 통계 대시보드 모달 */}
+      {showStatsDashboard && (
+        <DashboardModal>
+          <DashboardOverlay onClick={() => setShowStatsDashboard(false)} />
+          <DashboardWindow>
+            <DashboardHeader>
+              <DashboardTitle>
+                <BarChart3 size={28} />
+                방치 차량 통계 대시보드
+              </DashboardTitle>
+              <DashboardCloseButton onClick={() => setShowStatsDashboard(false)}>✕</DashboardCloseButton>
+            </DashboardHeader>
+            <DashboardContent>
+              <StatisticsDashboard vehicles={vehicles} />
+            </DashboardContent>
+          </DashboardWindow>
+        </DashboardModal>
       )}
     </Container>
   );
@@ -971,6 +1000,128 @@ const AddressText = styled.div`
 
   @media (max-width: 768px) {
     font-size: 11px;
+  }
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+`;
+
+const StatsButton = styled(SearchButton)`
+  background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const DashboardModal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const DashboardOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+`;
+
+const DashboardWindow = styled.div`
+  position: relative;
+  width: 90vw;
+  max-width: 1400px;
+  max-height: 90vh;
+  background: linear-gradient(135deg, #000 0%, #0a0a0a 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 120px rgba(59, 130, 246, 0.2);
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 768px) {
+    width: 95vw;
+    max-height: 95vh;
+  }
+`;
+
+const DashboardHeader = styled.div`
+  padding: 24px 32px;
+  background: linear-gradient(135deg, rgba(0,0,0,0.98) 0%, rgba(20,20,20,0.98) 100%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+`;
+
+const DashboardTitle = styled.h2`
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+`;
+
+const DashboardContent = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* 커스텀 스크롤바 */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #3B82F6;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #60A5FA;
+  }
+`;
+
+const DashboardCloseButton = styled.button`
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
   }
 `;
 
