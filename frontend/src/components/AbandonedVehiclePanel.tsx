@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { AlertTriangle, Camera, MapPin, Calendar, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Camera, MapPin, Calendar, TrendingUp, Search } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
