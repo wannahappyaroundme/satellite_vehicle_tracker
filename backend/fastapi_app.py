@@ -621,6 +621,8 @@ async def analyze_location(
     - longitude: 분석할 위치의 경도
     - address: 주소 (표시용)
     - use_real_api: True면 VWorld API, False면 데모 모드
+
+    ⭐ VWorld API 결과는 자동으로 DB에 저장됩니다!
     """
     try:
         # Demo mode (API 키 없이 작동)
@@ -629,6 +631,9 @@ async def analyze_location(
             return get_demo_analysis_result(latitude, longitude, address)
 
         # Real API mode (VWorld에서 실제 항공사진 다운로드)
+        from abandoned_vehicle_storage import get_storage
+        storage = get_storage()
+
         # 현재 항공사진 다운로드 (zoom 18 = 고해상도)
         current_result = ngii_service.download_high_resolution_area(
             latitude=latitude,
@@ -656,10 +661,31 @@ async def analyze_location(
         vehicle_det = VehicleDetector()
         detections = vehicle_det.detect_vehicles(current_image)
 
+        # ⭐ 감지된 차량을 DB에 저장 (고정된 방치 차량으로!)
+        # 유사도가 90% 이상인 차량만 방치 차량으로 간주
+        saved_vehicles = []
+        for detection in detections:
+            # 방치 차량으로 간주되는 조건 (예: confidence >= 0.9)
+            if detection.get('confidence', 0) >= 0.9:
+                vehicle_data = {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "address": address,
+                    "vehicle_type": detection.get('vehicle_type', 'car'),
+                    "similarity_score": detection.get('confidence', 0.9),
+                    "risk_level": "HIGH" if detection.get('confidence', 0) >= 0.95 else "MEDIUM",
+                    "years_difference": 1,  # 실제로는 이미지 비교에서 얻어야 함
+                    "bbox": detection.get('bbox', {})
+                }
+
+                # DB에 저장
+                saved_vehicle = storage.add_vehicle(vehicle_data)
+                saved_vehicles.append(saved_vehicle)
+
         return {
             "success": True,
             "mode": "real_api",
-            "status_message": f"✅ 실제 항공사진 분석 완료 ({len(detections)}대 차량 탐지)",
+            "status_message": f"✅ 실제 항공사진 분석 완료 ({len(detections)}대 차량 탐지, {len(saved_vehicles)}대 DB 저장)",
             "metadata": {
                 "address": address,
                 "latitude": latitude,
@@ -670,16 +696,121 @@ async def analyze_location(
             },
             "analysis": {
                 "vehicles_detected": len(detections),
+                "vehicles_saved_to_db": len(saved_vehicles),
                 "image_resolution": "high (zoom 18)",
                 "note": "방치 차량 분석을 위해서는 과거 항공사진이 필요합니다"
             },
-            "vehicles": detections
+            "vehicles": detections,
+            "saved_vehicles": saved_vehicles
         }
 
     except Exception as e:
         # 에러 발생 시 데모 모드로 fallback
         from demo_mode import get_demo_analysis_result
         return get_demo_analysis_result(latitude, longitude, address)
+
+
+# ===== ADMIN ENDPOINTS (방치 차량 관리) =====
+
+@app.get("/api/admin/vehicles/all")
+async def admin_get_all_vehicles(
+    status: Optional[str] = Query(None, description="상태 필터: DETECTED, INVESTIGATING, RESOLVED"),
+    risk_level: Optional[str] = Query(None, description="위험도 필터: CRITICAL, HIGH, MEDIUM, LOW")
+):
+    """
+    전국 모든 방치 차량 조회 (관리자용)
+
+    Query Parameters:
+    - status: 상태 필터
+    - risk_level: 위험도 필터
+    """
+    from abandoned_vehicle_storage import get_storage
+    storage = get_storage()
+
+    vehicles = storage.get_all_vehicles(
+        status_filter=status,
+        risk_level_filter=risk_level
+    )
+
+    return {
+        "success": True,
+        "total": len(vehicles),
+        "filters": {
+            "status": status,
+            "risk_level": risk_level
+        },
+        "vehicles": vehicles
+    }
+
+
+@app.get("/api/admin/vehicles/statistics")
+async def admin_get_statistics():
+    """
+    전국 방치 차량 통계 (관리자용)
+
+    Returns:
+        전체 차량 수, 상태별/위험도별/차량타입별 통계
+    """
+    from abandoned_vehicle_storage import get_storage
+    storage = get_storage()
+
+    stats = storage.get_statistics()
+
+    return {
+        "success": True,
+        "statistics": stats
+    }
+
+
+@app.put("/api/admin/vehicles/{vehicle_id}/status")
+async def admin_update_vehicle_status(
+    vehicle_id: str,
+    status: str = Query(..., pattern="^(DETECTED|INVESTIGATING|RESOLVED)$"),
+    notes: Optional[str] = Query(None, description="메모")
+):
+    """
+    방치 차량 상태 업데이트 (관리자용)
+
+    Parameters:
+    - vehicle_id: 차량 ID
+    - status: 새 상태 (DETECTED, INVESTIGATING, RESOLVED)
+    - notes: 메모 (선택)
+    """
+    from abandoned_vehicle_storage import get_storage
+    storage = get_storage()
+
+    updated_vehicle = storage.update_vehicle_status(vehicle_id, status, notes)
+
+    if not updated_vehicle:
+        raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
+
+    return {
+        "success": True,
+        "message": f"차량 {vehicle_id} 상태가 {status}로 업데이트되었습니다",
+        "vehicle": updated_vehicle
+    }
+
+
+@app.delete("/api/admin/vehicles/{vehicle_id}")
+async def admin_delete_vehicle(vehicle_id: str):
+    """
+    방치 차량 삭제 (관리자용 - 처리 완료 시)
+
+    Parameters:
+    - vehicle_id: 차량 ID
+    """
+    from abandoned_vehicle_storage import get_storage
+    storage = get_storage()
+
+    deleted = storage.delete_vehicle(vehicle_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
+
+    return {
+        "success": True,
+        "message": f"차량 {vehicle_id}가 삭제되었습니다"
+    }
 
 
 # ===== DEMO MODE ENDPOINTS (No API Key Required) =====

@@ -1,0 +1,33 @@
+{
+  "vehicles": [
+    {
+      "id": "vehicle_37_517200_127_047300_000",
+      "latitude": 37.5172,
+      "longitude": 127.0473,
+      "address": "서울특별시 강남구",
+      "vehicle_type": "car",
+      "similarity_score": 0.95,
+      "similarity_percentage": 95.0,
+      "risk_level": "CRITICAL",
+      "years_difference": 3,
+      "first_detected": "2025-10-25T16:16:10.207845",
+      "last_checked": "2025-10-25T16:16:10.208048",
+      "detection_count": 1,
+      "status": "DETECTED",
+      "bbox": {
+        "x": 350,
+        "y": 220,
+        "w": 85,
+        "h": 60
+      },
+      "metadata": {}
+    }
+  ],
+  "metadata": {
+    "total_vehicles": 1,
+    "last_updated": "2025-10-25T16:16:10.208053",
+    "total_scans": 1,
+    "version": "1.0.0",
+    "description": "대한민국 전국 장기 방치 차량 데이터베이스"
+  }
+}

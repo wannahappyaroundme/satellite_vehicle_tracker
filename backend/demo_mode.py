@@ -4,10 +4,34 @@ Works without NGII API key - uses mock data and sample images
 """
 
 import random
+import json
+import os
 from typing import Dict, List
 
-# 주요 도시 좌표 데이터
-CITY_COORDINATES = {
+# 전국 좌표 데이터 로드
+def load_korea_coordinates() -> Dict:
+    """
+    korea_coordinates.json 파일에서 전국 좌표 데이터 로드
+    """
+    json_path = os.path.join(os.path.dirname(__file__), 'korea_coordinates.json')
+
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get('coordinates', {})
+    except FileNotFoundError:
+        print(f"⚠️  Warning: {json_path} not found. Using fallback coordinates.")
+        return _get_fallback_coordinates()
+    except json.JSONDecodeError as e:
+        print(f"⚠️  Warning: Failed to parse JSON: {e}. Using fallback coordinates.")
+        return _get_fallback_coordinates()
+
+
+def _get_fallback_coordinates() -> Dict:
+    """
+    JSON 파일 로드 실패 시 사용하는 기본 좌표 (서울 강남구)
+    """
+    return {
     "서울특별시": {
         "강남구": {"latitude": 37.5172, "longitude": 127.0473, "address": "서울특별시 강남구"},
         "강동구": {"latitude": 37.5301, "longitude": 127.1238, "address": "서울특별시 강동구"},
@@ -250,27 +274,11 @@ CITY_COORDINATES = {
         "울진군": {"latitude": 36.9930, "longitude": 129.4006, "address": "경상북도 울진군"},
         "울릉군": {"latitude": 37.4844, "longitude": 130.9056, "address": "경상북도 울릉군"},
     },
-    "경상남도": {
-        "창원시": {"latitude": 35.2280, "longitude": 128.6811, "address": "경상남도 창원시"},
-        "진주시": {"latitude": 35.1800, "longitude": 128.1076, "address": "경상남도 진주시"},
-        "통영시": {"latitude": 34.8544, "longitude": 128.4332, "address": "경상남도 통영시"},
-        "사천시": {"latitude": 35.0036, "longitude": 128.0642, "address": "경상남도 사천시"},
-        "김해시": {"latitude": 35.2286, "longitude": 128.8894, "address": "경상남도 김해시"},
-        "밀양시": {"latitude": 35.5038, "longitude": 128.7463, "address": "경상남도 밀양시"},
-        "거제시": {"latitude": 34.8806, "longitude": 128.6211, "address": "경상남도 거제시"},
-        "양산시": {"latitude": 35.3350, "longitude": 129.0374, "address": "경상남도 양산시"},
-        "의령군": {"latitude": 35.3222, "longitude": 128.2618, "address": "경상남도 의령군"},
-        "함안군": {"latitude": 35.2722, "longitude": 128.4063, "address": "경상남도 함안군"},
-        "창녕군": {"latitude": 35.5445, "longitude": 128.4923, "address": "경상남도 창녕군"},
-        "고성군": {"latitude": 34.9733, "longitude": 128.3232, "address": "경상남도 고성군"},
-        "남해군": {"latitude": 34.8375, "longitude": 127.8923, "address": "경상남도 남해군"},
-        "하동군": {"latitude": 35.0673, "longitude": 127.7514, "address": "경상남도 하동군"},
-        "산청군": {"latitude": 35.4151, "longitude": 127.8736, "address": "경상남도 산청군"},
-        "함양군": {"latitude": 35.5203, "longitude": 127.7252, "address": "경상남도 함양군"},
-        "거창군": {"latitude": 35.6869, "longitude": 127.9094, "address": "경상남도 거창군"},
-        "합천군": {"latitude": 35.5664, "longitude": 128.1656, "address": "경상남도 합천군"},
     }
-}
+
+
+# 전국 좌표 데이터 로드 (모듈 로드 시 자동 실행)
+CITY_COORDINATES = load_korea_coordinates()
 
 
 def get_demo_coordinates(sido: str = None, sigungu: str = None) -> Dict:
@@ -405,7 +413,7 @@ def generate_mock_abandoned_vehicles(latitude: float, longitude: float, count: i
 
 def get_demo_analysis_result(latitude: float, longitude: float, address: str) -> Dict:
     """
-    데모 분석 결과 생성
+    데모 분석 결과 생성 (DB에서 조회)
 
     Args:
         latitude: 위도
@@ -415,10 +423,16 @@ def get_demo_analysis_result(latitude: float, longitude: float, address: str) ->
     Returns:
         분석 결과
     """
-    # 랜덤하게 방치 차량 0-5대 생성
-    vehicle_count = random.randint(0, 5)
+    # 방치 차량 저장소에서 조회 (랜덤 생성 대신!)
+    from abandoned_vehicle_storage import get_storage
 
-    if vehicle_count == 0:
+    storage = get_storage()
+
+    # 반경 500m 내 방치 차량 조회
+    vehicles = storage.get_vehicles_in_area(latitude, longitude, radius=500)
+
+    # 차량이 없으면
+    if len(vehicles) == 0:
         return {
             "success": True,
             "mode": "demo",
@@ -441,25 +455,28 @@ def get_demo_analysis_result(latitude: float, longitude: float, address: str) ->
             "results": []
         }
 
-    vehicles = generate_mock_abandoned_vehicles(latitude, longitude, vehicle_count)
+    # 차량이 있으면 DB 데이터 반환 (고정된 차량!)
+    vehicle_count = len(vehicles)
 
     return {
         "success": True,
         "mode": "demo",
-        "status_message": f"🔵 {vehicle_count}대의 방치 차량 발견 (데모 데이터)",
-        "status_message_en": f"{vehicle_count} abandoned vehicle(s) detected (Demo data)",
+        "status_message": f"🔵 {vehicle_count}대의 방치 차량 발견 (DB 데이터 - 고정)",
+        "status_message_en": f"{vehicle_count} abandoned vehicle(s) detected (Database - Fixed)",
         "metadata": {
             "address": address,
             "latitude": latitude,
             "longitude": longitude,
-            "mode": "demo"
+            "mode": "demo",
+            "note": "고정된 방치 차량 데이터 (새로고침해도 동일)"
         },
         "analysis": {
             "total_parking_spaces_detected": random.randint(15, 40),
             "spaces_analyzed": random.randint(10, 30),
             "abandoned_vehicles_found": vehicle_count,
             "detection_threshold": 0.90,
-            "is_clean": False
+            "is_clean": False,
+            "source": "database"
         },
         "abandoned_vehicles": vehicles,
         "results": vehicles
