@@ -14,6 +14,7 @@ from datetime import datetime
 import os
 import tempfile
 import json
+import logging
 
 from abandoned_vehicle_detector import AbandonedVehicleDetector
 from pdf_processor import PDFProcessor
@@ -22,6 +23,8 @@ from demo_mode import get_demo_coordinates, get_demo_analysis_result
 from aerial_image_cache import get_cache
 from logging_config import setup_logging, PerformanceLogger, SecurityLogger, log_performance
 from security import rate_limiter, InputValidator, DataProtection, SQLSafetyChecker
+# from auto_scheduler import get_scheduler  # TODO: Enable after DB models setup
+from abandoned_vehicle_storage import get_storage  # Use in-memory storage for now
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -87,6 +90,7 @@ setup_logging(
 )
 
 # Initialize loggers
+logger = logging.getLogger(__name__)
 perf_logger = PerformanceLogger()
 security_logger = SecurityLogger()
 
@@ -226,6 +230,23 @@ SAMPLE_CCTV_DATA = [
         "is_public": True
     }
 ]
+
+
+# TODO: Enable scheduler after DB setup
+# @app.on_event("startup")
+# async def startup_event():
+#     """앱 시작 시 스케줄러 시작"""
+#     scheduler = get_scheduler()
+#     scheduler.start()
+#     logger.info("✅ FastAPI 앱 시작 - 자동 스케줄러 활성화됨")
+#
+#
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     """앱 종료 시 스케줄러 중지"""
+#     scheduler = get_scheduler()
+#     scheduler.stop()
+#     logger.info("⏹️  FastAPI 앱 종료 - 자동 스케줄러 중지됨")
 
 
 @app.get("/")
@@ -414,28 +435,75 @@ async def upload_aerial_photos(
 
 @app.get("/api/abandoned-vehicles")
 async def get_abandoned_vehicles(
-    min_similarity: float = Query(0.90, ge=0.0, le=1.0),
-    min_years: int = Query(1, ge=1),
-    risk_level: Optional[str] = Query(None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$")
+    min_similarity: float = Query(0.85, ge=0.0, le=1.0, description="최소 유사도 (0-1)"),
+    risk_level: Optional[str] = Query(None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$", description="위험도 필터"),
+    city: Optional[str] = Query(None, description="시/도 필터"),
+    district: Optional[str] = Query(None, description="시/군/구 필터"),
+    status: Optional[str] = Query(None, description="상태 필터 (detected/verified/removed)"),
+    limit: int = Query(100, ge=1, le=1000, description="최대 결과 수")
 ):
     """
-    Get filtered list of abandoned vehicles
+    저장된 방치 차량 조회
 
     Query parameters:
-    - min_similarity: Minimum similarity score (0-1)
-    - min_years: Minimum years difference
-    - risk_level: Filter by risk level
+    - min_similarity: 최소 유사도 (기본값: 0.85)
+    - risk_level: 위험도 필터 (LOW/MEDIUM/HIGH/CRITICAL)
+    - city: 시/도 필터 (예: "서울특별시")
+    - district: 시/군/구 필터 (예: "강남구")
+    - status: 상태 필터 (detected/verified/removed)
+    - limit: 최대 결과 수 (기본값: 100)
     """
-    # This would typically query a database
-    # For now, return sample data structure
-    return {
-        "filters": {
-            "min_similarity": min_similarity,
-            "min_years": min_years,
-            "risk_level": risk_level
-        },
-        "message": "Run /api/compare-samples first to generate detection results"
-    }
+    try:
+        # Get storage instance
+        storage = get_storage()
+
+        # Get all vehicles from storage
+        all_vehicles = storage.get_all_vehicles()
+
+        # Apply filters
+        results = []
+        for v in all_vehicles:
+            # Similarity filter
+            if v.get('similarity_percentage', 0) / 100 < min_similarity:
+                continue
+
+            # Risk level filter
+            if risk_level and v.get('risk_level') != risk_level:
+                continue
+
+            # City filter
+            if city and city not in v.get('address', ''):
+                continue
+
+            # District filter
+            if district and district not in v.get('address', ''):
+                continue
+
+            # Status filter
+            if status and v.get('status') != status:
+                continue
+
+            results.append(v)
+
+        # Limit results
+        results = results[:limit]
+
+        return {
+            "success": True,
+            "count": len(results),
+            "filters": {
+                "min_similarity": min_similarity,
+                "risk_level": risk_level,
+                "city": city,
+                "district": district,
+                "status": status
+            },
+            "abandoned_vehicles": results,
+            "message": "영구 방치 차량 DB에서 조회 (실시간 업데이트)"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"조회 실패: {str(e)}")
 
 
 @app.get("/api/cctv-locations")
@@ -814,6 +882,24 @@ async def admin_delete_vehicle(vehicle_id: str):
 
 
 # ===== UTILITY ENDPOINTS =====
+
+# TODO: Enable after DB/scheduler setup
+# @app.post("/api/admin/trigger-analysis")
+# async def trigger_analysis():
+#     """
+#     수동으로 방치 차량 분석 실행 (관리자/테스트용)
+#
+#     자동 스케줄러를 기다리지 않고 즉시 분석을 실행합니다.
+#     """
+#     scheduler = get_scheduler()
+#     scheduler.run_now()
+#
+#     return {
+#         "success": True,
+#         "message": "방치 차량 분석이 백그라운드에서 시작되었습니다",
+#         "note": "분석 완료까지 수 분이 소요될 수 있습니다. /api/abandoned-vehicles로 결과를 확인하세요."
+#     }
+
 
 @app.get("/api/reverse-geocode")
 async def reverse_geocode(

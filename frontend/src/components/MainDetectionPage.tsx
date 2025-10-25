@@ -79,8 +79,8 @@ const MainDetectionPage: React.FC = () => {
 
   const [sigunguList, setSigunguList] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzed, setAnalyzed] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [showVehicles, setShowVehicles] = useState(false); // 방치 차량 표시 토글
 
   const [mapCenter, setMapCenter] = useState<[number, number]>([37.5665, 126.9780]); // 서울 기본
   const [mapZoom, setMapZoom] = useState(13);
@@ -168,42 +168,61 @@ const MainDetectionPage: React.FC = () => {
     }
   };
 
-  // 방치 차량 분석
-  const handleAnalyze = async () => {
-    if (!mapCenter) {
-      alert('먼저 주소를 검색해주세요');
-      return;
-    }
-
-    setAnalyzing(true);
-    const modeText = USE_DEMO_MODE ? ' 🎭 (데모 데이터 생성 중...)' : '';
-    setStatusMessage(`방치 차량 분석 중...${modeText}`);
+  // DB에서 방치 차량 로드 (자동 분석 결과)
+  const loadVehiclesFromDB = async () => {
+    setLoadingVehicles(true);
+    setStatusMessage('DB에서 방치 차량 로드 중...');
 
     try {
-      // 데모 모드 또는 실제 API
-      const endpoint = USE_DEMO_MODE ? '/demo/analyze-location' : '/analyze-location';
+      // DB에서 방치 차량 조회 (필터: 현재 선택된 지역)
+      const params: any = {
+        min_similarity: 0.85,
+        limit: 100
+      };
 
-      const response = await axios.post(`${API_BASE_URL}${endpoint}?latitude=${mapCenter[0]}&longitude=${mapCenter[1]}&address=${encodeURIComponent(statusMessage)}`);
+      // 시/도 필터
+      if (sido) {
+        params.city = sido;
+      }
+
+      // 시/군/구 필터
+      if (sigungu) {
+        params.district = sigungu;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/abandoned-vehicles`, { params });
 
       if (response.data.success) {
         const abandonedVehicles = response.data.abandoned_vehicles || [];
         setVehicles(abandonedVehicles);
-        setAnalyzed(true);
 
-        const modeMsg = USE_DEMO_MODE ? ' 🎭' : '';
         if (abandonedVehicles.length === 0) {
-          setStatusMessage(`✅ 방치 차량이 발견되지 않았습니다${modeMsg}`);
+          setStatusMessage(`✅ ${sido || '전국'} ${sigungu || ''} 지역에 방치 차량이 없습니다 (최근 자동 분석 결과)`);
         } else {
-          setStatusMessage(`🔵 ${abandonedVehicles.length}대의 방치 차량 발견${modeMsg}`);
+          setStatusMessage(`🔵 ${abandonedVehicles.length}대의 방치 차량 발견 (매일 0시, 12시 자동 업데이트)`);
         }
       } else {
-        setStatusMessage(response.data.status_message || '분석 실패');
+        setStatusMessage('방치 차량 데이터를 불러올 수 없습니다');
       }
     } catch (error: any) {
-      console.error('Analysis error:', error);
-      setStatusMessage(`분석 실패: ${error.message}`);
+      console.error('Load vehicles error:', error);
+      setStatusMessage(`로드 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
-      setAnalyzing(false);
+      setLoadingVehicles(false);
+    }
+  };
+
+  // 방치 차량 표시 토글
+  const handleToggleVehicles = async () => {
+    if (!showVehicles) {
+      // 표시 ON: DB에서 로드
+      await loadVehiclesFromDB();
+      setShowVehicles(true);
+    } else {
+      // 표시 OFF: 숨기기
+      setVehicles([]);
+      setShowVehicles(false);
+      setStatusMessage('방치 차량 표시가 비활성화되었습니다');
     }
   };
 
@@ -255,14 +274,14 @@ const MainDetectionPage: React.FC = () => {
         <Logo>장기 방치 차량 탐지 시스템</Logo>
 
         <SearchControls>
-          <Select value={sido} onChange={(e) => setSido(e.target.value)} disabled={loading || analyzing}>
+          <Select value={sido} onChange={(e) => setSido(e.target.value)} disabled={loading || loadingVehicles}>
             <option value="">시/도 선택</option>
             {sidoList.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </Select>
 
-          <Select value={sigungu} onChange={(e) => setSigungu(e.target.value)} disabled={!sido || loading || analyzing}>
+          <Select value={sigungu} onChange={(e) => setSigungu(e.target.value)} disabled={!sido || loading || loadingVehicles}>
             <option value="">시/군/구 선택</option>
             {sigunguList.map(s => (
               <option key={s} value={s}>{s}</option>
@@ -274,7 +293,7 @@ const MainDetectionPage: React.FC = () => {
             placeholder="동/읍/면 (선택)"
             value={dong}
             onChange={(e) => setDong(e.target.value)}
-            disabled={loading || analyzing}
+            disabled={loading || loadingVehicles}
           />
 
           <Input
@@ -282,31 +301,25 @@ const MainDetectionPage: React.FC = () => {
             placeholder="지번 (선택)"
             value={jibun}
             onChange={(e) => setJibun(e.target.value)}
-            disabled={loading || analyzing}
+            disabled={loading || loadingVehicles}
           />
 
-          <SearchButton onClick={handleSearch} disabled={!sido || loading || analyzing}>
+          <SearchButton onClick={handleSearch} disabled={!sido || loading || loadingVehicles}>
             {loading ? <Loader size={20} className="spin" /> : <Search size={20} />}
             위치 검색
           </SearchButton>
 
           <ButtonGroup>
-            {!analyzed ? (
-              <AnalyzeButton onClick={handleAnalyze} disabled={!mapCenter[0] || analyzing || loading}>
-                {analyzing ? <Loader size={20} className="spin" /> : <Search size={20} />}
-                {analyzing ? '분석 중...' : '방치 차량 분석'}
-              </AnalyzeButton>
-            ) : (
-              <>
-                <UpdateButton onClick={handleAnalyze} disabled={analyzing}>
-                  {analyzing ? <Loader size={20} className="spin" /> : <RefreshCw size={20} />}
-                  {analyzing ? '분석 중...' : '업데이트'}
-                </UpdateButton>
-                <StatsButton onClick={() => setShowStatsDashboard(true)} disabled={vehicles.length === 0}>
-                  <BarChart3 size={20} />
-                  통계 대시보드
-                </StatsButton>
-              </>
+            <ToggleButton onClick={handleToggleVehicles} disabled={loadingVehicles} $active={showVehicles}>
+              {loadingVehicles ? <Loader size={20} className="spin" /> : <MapPin size={20} />}
+              {loadingVehicles ? '로드 중...' : showVehicles ? '방치 차량 숨기기' : '방치 차량 표시'}
+            </ToggleButton>
+
+            {showVehicles && vehicles.length > 0 && (
+              <StatsButton onClick={() => setShowStatsDashboard(true)}>
+                <BarChart3 size={20} />
+                통계 대시보드
+              </StatsButton>
             )}
           </ButtonGroup>
         </SearchControls>
@@ -674,15 +687,14 @@ const SearchButton = styled.button`
   }
 `;
 
-const AnalyzeButton = styled(SearchButton)`
-  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-`;
-
-const UpdateButton = styled(SearchButton)`
-  background: #666;
+const ToggleButton = styled(SearchButton)<{ $active: boolean }>`
+  background: ${props => props.$active ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)'};
+  border: ${props => props.$active ? '2px solid #10B981' : 'none'};
 
   &:hover:not(:disabled) {
-    background: #888;
+    background: ${props => props.$active ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : '#2563EB'};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px ${props => props.$active ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'};
   }
 `;
 

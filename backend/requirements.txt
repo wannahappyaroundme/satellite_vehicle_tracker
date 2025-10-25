@@ -44,6 +44,9 @@ requests==2.31.0
 urllib3==2.1.0
 httpx==0.25.2  # Async HTTP client for FastAPI
 
+# Task Scheduling
+apscheduler==3.10.4  # Auto-scheduler for abandoned vehicle analysis
+
 # Configuration & Environment
 python-dotenv==1.0.0
 
