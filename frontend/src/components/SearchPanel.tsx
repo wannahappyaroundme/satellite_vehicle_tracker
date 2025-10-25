@@ -3,6 +3,9 @@ import styled from 'styled-components';
 import { Search, MapPin, Car, Filter, Zap } from 'lucide-react';
 import { VehicleData, StorageAnalysisData, SearchFilters } from '../types';
 import { searchVehicles, getStorageAnalysis } from '../services/api';
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const PanelContainer = styled.div`
   flex: 1;

@@ -61,6 +61,8 @@ const AbandonedVehiclePanel: React.FC = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<AbandonedVehicle | null>(null);
   const [selectedCCTV, setSelectedCCTV] = useState<CCTVLocation | null>(null);
   const [showCCTVPopup, setShowCCTVPopup] = useState(false);
+  const [searchAddress, setSearchAddress] = useState('');
+  const [showLocationSearch, setShowLocationSearch] = useState(false);
 
   const runAnalysis = async () => {
     setLoading(true);
@@ -70,6 +72,46 @@ const AbandonedVehiclePanel: React.FC = () => {
     } catch (error: any) {
       console.error('Analysis failed:', error);
       alert(`분석 실패: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const analyzeRealLocation = async () => {
+    if (!searchAddress.trim()) {
+      alert('주소를 입력하세요');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. 주소 → 좌표 변환
+      const addressResponse = await axios.get(`${API_BASE_URL}/api/search-address`, {
+        params: { query: searchAddress }
+      });
+
+      if (!addressResponse.data.latitude || !addressResponse.data.longitude) {
+        alert('주소를 찾을 수 없습니다');
+        return;
+      }
+
+      const { latitude, longitude, address: fullAddress } = addressResponse.data;
+
+      // 2. 해당 위치 방치차량 분석 (데모 모드)
+      const analysisResponse = await axios.post(`${API_BASE_URL}/api/analyze-location`, null, {
+        params: {
+          latitude,
+          longitude,
+          address: fullAddress || searchAddress,
+          use_real_api: false  // API 키가 유효하면 true로 변경
+        }
+      });
+
+      setResults(analysisResponse.data);
+      setShowLocationSearch(false);
+    } catch (error: any) {
+      console.error('Location analysis failed:', error);
+      alert(`위치 분석 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -123,6 +165,29 @@ const AbandonedVehiclePanel: React.FC = () => {
         <AnalyzeButton onClick={runAnalysis} disabled={loading}>
           {loading ? '분석 중...' : '샘플 이미지 분석 시작'}
         </AnalyzeButton>
+
+        <LocationSearchSection>
+          <LocationSearchButton onClick={() => setShowLocationSearch(!showLocationSearch)}>
+            <MapPin size={16} />
+            {showLocationSearch ? '위치 검색 닫기' : '실제 위치 분석하기'}
+          </LocationSearchButton>
+
+          {showLocationSearch && (
+            <LocationSearchBox>
+              <LocationInput
+                type="text"
+                value={searchAddress}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                placeholder="주소 입력 (예: 서울특별시 강남구)"
+                onKeyPress={(e) => e.key === 'Enter' && analyzeRealLocation()}
+              />
+              <LocationAnalyzeButton onClick={analyzeRealLocation} disabled={loading}>
+                <Search size={16} />
+                분석 시작
+              </LocationAnalyzeButton>
+            </LocationSearchBox>
+          )}
+        </LocationSearchSection>
       </ActionSection>
 
       {results && (
@@ -400,6 +465,81 @@ const AnalyzeButton = styled.button`
   &:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(255, 107, 53, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const LocationSearchSection = styled.div`
+  margin-top: 20px;
+`;
+
+const LocationSearchButton = styled.button`
+  width: 100%;
+  padding: 14px;
+  background: #1f1f1f;
+  color: #fff;
+  border: 2px solid #ff6b35;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s;
+
+  &:hover {
+    background: #ff6b35;
+    transform: translateY(-2px);
+  }
+`;
+
+const LocationSearchBox = styled.div`
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+`;
+
+const LocationInput = styled.input`
+  flex: 1;
+  padding: 12px 16px;
+  background: #1f1f1f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+
+  &::placeholder {
+    color: #666;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #ff6b35;
+  }
+`;
+
+const LocationAnalyzeButton = styled.button`
+  padding: 12px 24px;
+  background: #ff6b35;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+
+  &:hover:not(:disabled) {
+    background: #f7931e;
   }
 
   &:disabled {

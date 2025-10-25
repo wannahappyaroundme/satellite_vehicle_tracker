@@ -8,6 +8,10 @@ import requests
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 import json
+import math
+import numpy as np
+from PIL import Image
+import io
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,6 +33,7 @@ class NGIIAPIService:
         self.base_url = "http://api.vworld.kr/req"
         self.geocode_url = f"{self.base_url}/address"
         self.aerial_url = f"{self.base_url}/wms"
+        self.wmts_base_url = "https://api.vworld.kr/req/wmts/1.0.0"
 
     def search_address(
         self,
@@ -283,6 +288,197 @@ class NGIIAPIService:
             )
 
         return result
+
+    def lat_lon_to_tile(self, latitude: float, longitude: float, zoom: int) -> Tuple[int, int]:
+        """
+        위경도 좌표를 WMTS 타일 좌표로 변환
+
+        Args:
+            latitude: 위도
+            longitude: 경도
+            zoom: 확대 레벨 (6-19)
+
+        Returns:
+            (tile_x, tile_y) 튜플
+        """
+        n = 2.0 ** zoom
+        x_tile = int((longitude + 180.0) / 360.0 * n)
+        y_tile = int((1.0 - math.asinh(math.tan(math.radians(latitude))) / math.pi) / 2.0 * n)
+        return (x_tile, y_tile)
+
+    def get_wmts_tile_url(self, zoom: int, tile_x: int, tile_y: int, layer: str = 'Satellite') -> str:
+        """
+        WMTS 타일 URL 생성 (WMS보다 빠름)
+
+        Args:
+            zoom: 확대 레벨 (6-19)
+            tile_x: 타일 X 좌표
+            tile_y: 타일 Y 좌표
+            layer: 레이어명 (Satellite, Hybrid, Base 등)
+
+        Returns:
+            WMTS 타일 URL
+        """
+        return f"{self.wmts_base_url}/{self.api_key}/{layer}/{zoom}/{tile_y}/{tile_x}.jpeg"
+
+    def download_aerial_tile(
+        self,
+        latitude: float,
+        longitude: float,
+        zoom: int = 18,
+        output_path: Optional[str] = None
+    ) -> Dict:
+        """
+        WMTS API로 고해상도 항공사진 타일 다운로드
+
+        Args:
+            latitude: 위도
+            longitude: 경도
+            zoom: 확대 레벨 (18-19 권장, 높을수록 고해상도)
+            output_path: 저장 경로 (None이면 numpy array 반환)
+
+        Returns:
+            다운로드 결과 (path 또는 image_array 포함)
+        """
+        try:
+            # 좌표를 타일 좌표로 변환
+            tile_x, tile_y = self.lat_lon_to_tile(latitude, longitude, zoom)
+
+            # WMTS URL 생성
+            url = self.get_wmts_tile_url(zoom, tile_x, tile_y)
+
+            # 다운로드
+            response = requests.get(url, timeout=30)
+
+            if response.status_code == 200:
+                # 이미지 데이터
+                image = Image.open(io.BytesIO(response.content))
+
+                result = {
+                    'success': True,
+                    'tile_x': tile_x,
+                    'tile_y': tile_y,
+                    'zoom': zoom,
+                    'coordinates': {
+                        'latitude': latitude,
+                        'longitude': longitude
+                    },
+                    'size': len(response.content)
+                }
+
+                if output_path:
+                    # 파일로 저장
+                    with open(output_path, 'wb') as f:
+                        f.write(response.content)
+                    result['path'] = output_path
+                else:
+                    # numpy array로 반환
+                    result['image_array'] = np.array(image)
+
+                return result
+            else:
+                return {
+                    'success': False,
+                    'error': f'HTTP {response.status_code}: 타일 다운로드 실패',
+                    'url': url
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'다운로드 오류: {str(e)}'
+            }
+
+    def download_high_resolution_area(
+        self,
+        latitude: float,
+        longitude: float,
+        width_tiles: int = 3,
+        height_tiles: int = 3,
+        zoom: int = 18,
+        output_path: Optional[str] = None
+    ) -> Dict:
+        """
+        여러 타일을 다운로드하여 넓은 영역의 고해상도 항공사진 생성
+
+        Args:
+            latitude: 중심 위도
+            longitude: 중심 경도
+            width_tiles: 가로 타일 수 (홀수 권장)
+            height_tiles: 세로 타일 수 (홀수 권장)
+            zoom: 확대 레벨 (18-19 권장)
+            output_path: 저장 경로
+
+        Returns:
+            다운로드 결과 (병합된 이미지)
+        """
+        try:
+            # 중심 타일 좌표
+            center_x, center_y = self.lat_lon_to_tile(latitude, longitude, zoom)
+
+            # 타일 범위 계산
+            start_x = center_x - width_tiles // 2
+            start_y = center_y - height_tiles // 2
+
+            # 타일 다운로드
+            tiles = []
+            for y_offset in range(height_tiles):
+                row = []
+                for x_offset in range(width_tiles):
+                    tile_x = start_x + x_offset
+                    tile_y = start_y + y_offset
+
+                    url = self.get_wmts_tile_url(zoom, tile_x, tile_y)
+                    response = requests.get(url, timeout=30)
+
+                    if response.status_code == 200:
+                        tile_image = Image.open(io.BytesIO(response.content))
+                        row.append(tile_image)
+                    else:
+                        # 빈 타일로 대체
+                        row.append(Image.new('RGB', (256, 256), (200, 200, 200)))
+
+                tiles.append(row)
+
+            # 타일 병합
+            tile_width = tiles[0][0].width
+            tile_height = tiles[0][0].height
+
+            merged_width = tile_width * width_tiles
+            merged_height = tile_height * height_tiles
+
+            merged_image = Image.new('RGB', (merged_width, merged_height))
+
+            for y_idx, row in enumerate(tiles):
+                for x_idx, tile in enumerate(row):
+                    x_pos = x_idx * tile_width
+                    y_pos = y_idx * tile_height
+                    merged_image.paste(tile, (x_pos, y_pos))
+
+            result = {
+                'success': True,
+                'tiles_downloaded': width_tiles * height_tiles,
+                'image_size': (merged_width, merged_height),
+                'zoom': zoom,
+                'coordinates': {
+                    'latitude': latitude,
+                    'longitude': longitude
+                }
+            }
+
+            if output_path:
+                merged_image.save(output_path, 'JPEG', quality=95)
+                result['path'] = output_path
+            else:
+                result['image_array'] = np.array(merged_image)
+
+            return result
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'영역 다운로드 오류: {str(e)}'
+            }
 
 
 # 테스트용
