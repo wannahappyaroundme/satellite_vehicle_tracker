@@ -410,20 +410,40 @@ const MainDetectionPage: React.FC = () => {
               <SatelliteImageContainer>
                 {selectedVehicle.latitude && selectedVehicle.longitude ? (
                   <>
-                    <SatelliteImage
-                      src={`https://tile.openstreetmap.org/18/${Math.floor((selectedVehicle.longitude + 180) / 360 * Math.pow(2, 18))}/${Math.floor((1 - Math.log(Math.tan(selectedVehicle.latitude * Math.PI / 180) + 1 / Math.cos(selectedVehicle.latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 18))}.png`}
-                      alt="위성 사진"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const nextEl = e.currentTarget.nextElementSibling as HTMLElement;
-                        if (nextEl) {
-                          nextEl.style.display = 'flex';
+                    {/* 3x3 Grid of Satellite Tiles for better coverage */}
+                    <SatelliteTileGrid>
+                      {(() => {
+                        const zoom = 18;
+                        const centerX = Math.floor((selectedVehicle.longitude + 180) / 360 * Math.pow(2, zoom));
+                        const centerY = Math.floor((1 - Math.log(Math.tan(selectedVehicle.latitude * Math.PI / 180) + 1 / Math.cos(selectedVehicle.latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
+
+                        const tiles = [];
+                        for (let dy = -1; dy <= 1; dy++) {
+                          for (let dx = -1; dx <= 1; dx++) {
+                            const x = centerX + dx;
+                            const y = centerY + dy;
+                            tiles.push(
+                              <SatelliteTile
+                                key={`${x}-${y}`}
+                                src={`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${zoom}`}
+                                alt="위성 항공사진"
+                                onError={(e) => {
+                                  // Fallback to Esri
+                                  const esriUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
+                                  if (e.currentTarget.src.indexOf('google.com') !== -1) {
+                                    e.currentTarget.src = esriUrl;
+                                  }
+                                }}
+                              />
+                            );
+                          }
                         }
-                      }}
-                    />
+                        return tiles;
+                      })()}
+                    </SatelliteTileGrid>
                     <SatelliteImagePlaceholder style={{ display: 'none' }}>
                       <PlaceholderText>
-                        이미지 로드 실패
+                        항공사진 로드 실패
                         <br />
                         <small>좌표: {selectedVehicle.latitude.toFixed(6)}, {selectedVehicle.longitude.toFixed(6)}</small>
                       </PlaceholderText>
@@ -826,7 +846,16 @@ const SatelliteImageContainer = styled.div`
   position: relative;
 `;
 
-const SatelliteImage = styled.img`
+const SatelliteTileGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  gap: 0;
+`;
+
+const SatelliteTile = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
