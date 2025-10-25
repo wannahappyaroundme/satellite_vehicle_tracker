@@ -42,6 +42,7 @@ fiona==1.9.5
 # HTTP & API
 requests==2.31.0
 urllib3==2.1.0
+httpx==0.25.2  # Async HTTP client for FastAPI
 
 # Configuration & Environment
 python-dotenv==1.0.0

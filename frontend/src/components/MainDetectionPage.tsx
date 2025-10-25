@@ -222,25 +222,23 @@ const MainDetectionPage: React.FC = () => {
     if (zoom >= 14) {
       setAddressLoading(true);
       try {
-        // Nominatim reverse geocoding (무료)
-        const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+        // 백엔드 프록시를 통한 역지오코딩 (CORS 해결)
+        const response = await axios.get(`${API_BASE_URL}/api/reverse-geocode`, {
           params: {
             lat: center[0],
-            lon: center[1],
-            format: 'json',
-            'accept-language': 'ko',
-            addressdetails: 1
+            lon: center[1]
           },
-          headers: {
-            'User-Agent': 'AbandonedVehicleDetection/1.0'
-          }
+          timeout: 5000  // 5초 타임아웃
         });
 
-        if (response.data && response.data.display_name) {
-          setCurrentAddress(response.data.display_name);
+        if (response.data && response.data.success && response.data.address) {
+          setCurrentAddress(response.data.address);
+        } else {
+          setCurrentAddress(`위도: ${center[0].toFixed(6)}, 경도: ${center[1].toFixed(6)}`);
         }
       } catch (error) {
         console.error('Reverse geocoding error:', error);
+        // 에러 시 좌표만 표시 (network error 방지)
         setCurrentAddress(`위도: ${center[0].toFixed(6)}, 경도: ${center[1].toFixed(6)}`);
       } finally {
         setAddressLoading(false);

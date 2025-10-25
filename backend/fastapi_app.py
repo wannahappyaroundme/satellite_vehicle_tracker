@@ -813,6 +813,60 @@ async def admin_delete_vehicle(vehicle_id: str):
     }
 
 
+# ===== UTILITY ENDPOINTS =====
+
+@app.get("/api/reverse-geocode")
+async def reverse_geocode(
+    lat: float = Query(..., description="위도"),
+    lon: float = Query(..., description="경도")
+):
+    """
+    역지오코딩 프록시 (CORS 문제 해결)
+
+    Nominatim API를 백엔드에서 호출하여 CORS 문제 방지
+    """
+    import httpx
+
+    try:
+        # Nominatim API 호출 (비동기)
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                'https://nominatim.openstreetmap.org/reverse',
+                params={
+                    'lat': lat,
+                    'lon': lon,
+                    'format': 'json',
+                    'accept-language': 'ko',
+                    'addressdetails': 1
+                },
+                headers={
+                    'User-Agent': 'AbandonedVehicleDetection/1.0'
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "address": data.get('display_name', f"위도: {lat}, 경도: {lon}"),
+                    "data": data
+                }
+            else:
+                return {
+                    "success": False,
+                    "address": f"위도: {lat}, 경도: {lon}",
+                    "error": f"Status code: {response.status_code}"
+                }
+
+    except Exception as e:
+        # 에러 시 좌표 반환
+        return {
+            "success": False,
+            "address": f"위도: {lat:.6f}, 경도: {lon:.6f}",
+            "error": str(e)
+        }
+
+
 # ===== DEMO MODE ENDPOINTS (No API Key Required) =====
 
 @app.get("/api/demo/address/search")
