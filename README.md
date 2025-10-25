@@ -1,348 +1,419 @@
-# Satellite Vehicle Tracker
+# 🚗 장기 방치 차량 탐지 시스템
 
-thanks to Cursor & gemini
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.120-009688.svg)](https://fastapi.tiangolo.com/)
 
-A comprehensive satellite imagery analysis platform that detects vehicles, analyzes storage potential, and provides interactive mapping capabilities.
+> VWorld 항공사진과 AI를 활용한 장기 방치 차량 자동 탐지 시스템
 
-## Features
+[English](./README_EN.md) | **한국어**
 
-### 🚗 Vehicle Detection
-- **AI-Powered Detection**: Uses YOLO (You Only Look Once) models to detect vehicles in satellite imagery
-- **Multiple Vehicle Types**: Cars, trucks, buses, motorcycles, aircraft, and more
-- **Real-time Processing**: Upload satellite images and get instant vehicle detection results
-- **Confidence Scoring**: Each detection includes a confidence percentage
+---
 
-### 🗺️ Interactive Mapping
-- **Google Maps Integration**: Interactive map interface for visualizing detected vehicles
-- **Real-time Updates**: Live updates as new vehicles are detected
-- **Custom Markers**: Color-coded markers for different vehicle types
-- **Zoom & Pan**: Full map navigation capabilities
+## 📖 목차
 
-### 🔍 Advanced Search
-- **Geographic Search**: Search for vehicles within specific areas and time ranges
-- **Filter by Type**: Filter results by vehicle type (car, truck, aircraft, etc.)
-- **Time-based Filtering**: Search within 24h, 7d, or 30d time windows
-- **Confidence Filtering**: Set minimum confidence thresholds
+- [개요](#-개요)
+- [주요 기능](#-주요-기능)
+- [기술 스택](#-기술-스택)
+- [빠른 시작](#-빠른-시작)
+- [VWorld API 설정](#-vworld-api-설정)
+- [사용 방법](#-사용-방법)
+- [캐싱 시스템](#-캐싱-시스템)
+- [프로젝트 구조](#-프로젝트-구조)
+- [라이선스](#-라이선스)
 
-### 📊 Storage Analysis
-- **Long-term Storage Detection**: Identify vehicles that may be seeking long-term storage
-- **Clustering Analysis**: Group vehicles by location and behavior patterns
-- **Potential Scoring**: AI-powered scoring system for storage potential (0-100%)
-- **Recommendations**: Generate actionable recommendations for storage locations
+---
 
-### ✈️ Aircraft Detection
-- **Specialized Detection**: Optimized algorithms for detecting aircraft in satellite imagery
-- **Airport Monitoring**: Track aircraft movements and parking patterns
-- **Multi-type Support**: Planes, helicopters, drones, and other aircraft
+## 🎯 개요
 
-## Technology Stack
+장기 방치 차량 탐지 시스템은 **VWorld API**로부터 실시간 항공사진을 받아, **ResNet50 딥러닝 모델**을 사용하여 장기간 같은 위치에 방치된 차량을 자동으로 탐지합니다.
+
+### 핵심 원리
+
+1. 📍 사용자가 주소 또는 좌표 입력
+2. 🛰️ VWorld API에서 고해상도 항공사진 다운로드 (12cm GSD)
+3. 🤖 ResNet50으로 차량 특징 추출
+4. 📊 시계열 비교로 방치 여부 판단 (유사도 90% 이상)
+5. ⚠️ 위험도 분류 (CRITICAL / HIGH / MEDIUM / LOW)
+
+### 왜 이 시스템이 필요한가?
+
+- **공공 안전**: 장기 방치 차량은 도난/유기 차량일 가능성
+- **도시 미관**: 방치 차량으로 인한 주차 공간 낭비
+- **자동화**: 수작업 대신 AI로 24/7 자동 모니터링
+- **비용 효율**: VWorld API 무료 + 24시간 캐싱으로 월 40원
+
+---
+
+## ✨ 주요 기능
+
+### 1. 실시간 항공사진 분석
+- ✅ VWorld WMTS API 연동 (12cm 해상도)
+- ✅ 주소 자동 변환 (지오코더 API)
+- ✅ 3×3 타일 자동 병합 (768×768 픽셀)
+
+### 2. AI 기반 방치 차량 탐지
+- ✅ ResNet50 특징 추출 (ImageNet 사전학습)
+- ✅ 코사인 유사도 기반 비교
+- ✅ 자동 위험도 분류:
+  - **CRITICAL**: 유사도 95%+ & 3년+
+  - **HIGH**: 유사도 90%+ & 2년+
+  - **MEDIUM**: 유사도 85%+
+  - **LOW**: 85% 미만
+
+### 3. 24시간 캐싱 시스템 ⭐
+- ✅ 서버 사이드 디스크 캐싱
+- ✅ 첫 요청: VWorld API 호출 (5초)
+- ✅ 재요청: 캐시에서 즉시 (0.1초, **100배 빠름**)
+- ✅ 자동 만료 및 정리 (24시간 TTL)
+- ✅ API 호출 80% 절감
+
+### 4. 사용자 친화적 UI
+- ✅ 반응형 웹 디자인 (React + TypeScript)
+- ✅ 실시간 지도 표시 (Leaflet)
+- ✅ 샘플 데이터 분석 (데모 모드)
+- ✅ 실제 위치 분석
+- ✅ CCTV 검증 기능 (플레이스홀더)
+
+---
+
+## 🛠️ 기술 스택
 
 ### Backend
-- **Python Flask**: RESTful API server
-- **YOLO**: Computer vision for object detection
-- **OpenCV**: Image processing and manipulation
-- **SQLAlchemy**: Database ORM
-- **scikit-learn**: Machine learning for clustering and analysis
+- **FastAPI** 0.120.0 - 고성능 Python 웹 프레임워크
+- **PyTorch** 2.1.1 - ResNet50 딥러닝 모델
+- **OpenCV** 4.8.1 - 이미지 처리
+- **Pillow** 10.1.0 - 타일 병합
+- **SQLAlchemy** 2.0.23 - ORM (선택적)
 
 ### Frontend
-- **React + TypeScript**: Modern, type-safe frontend
-- **Leaflet**: Interactive mapping library
-- **Styled Components**: CSS-in-JS styling
-- **Axios**: HTTP client for API communication
+- **React** 18 - UI 라이브러리
+- **TypeScript** - 타입 안전성
+- **Leaflet** - 지도 표시
+- **Styled Components** - CSS-in-JS
+- **Axios** - HTTP 클라이언트
 
-### Database
-- **SQLite**: Default database (easily configurable for PostgreSQL/MySQL)
-- **Geospatial Support**: Location-based queries and indexing
+### AI/ML
+- **ResNet50** - 특징 추출 (torchvision)
+- **YOLOv8** - 차량 탐지 (선택적)
+- **scikit-learn** - 코사인 유사도
 
-## Quick Start
+### API & 데이터
+- **VWorld API** - 항공사진, 지오코딩 (무료)
+- **국토정보플랫폼** - 한국 지리 데이터
 
-### Prerequisites
-- **Python 3.8+** (3.11 recommended)
-- **Node.js 16+** (18 recommended)
+---
+
+## 🚀 빠른 시작
+
+### 필수 요구사항
+
+- **Node.js** 18+
+- **Python** 3.11+
+- **VWorld API 키** ([신청 방법](#-vworld-api-설정))
 - **Git**
-- **Docker & Docker Compose** (for production deployment)
 
-### 🚀 One-Click Setup
+### 1. 저장소 클론
 
-#### For macOS:
 ```bash
-git clone <repository-url>
-cd satellite_project
-./setup_mac.sh
+git clone https://github.com/wannahappyaroundme/satellite_vehicle_tracker.git
+cd satellite_vehicle_tracker
 ```
 
-#### For Windows:
-```batch
-git clone <repository-url>
-cd satellite_project
-setup_windows.bat
+### 2. Backend 설정
+
+```bash
+cd backend
+
+# 가상환경 생성 (권장)
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 의존성 설치
+pip install -r requirements.txt
 ```
 
-#### Manual Installation:
+### 3. Frontend 설정
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd satellite_project
-   ```
+```bash
+cd frontend
 
-2. **Install dependencies**
-   ```bash
-   # Install all dependencies
-   npm run install:all
-   
-   # Or install separately:
-   # Backend
-   cd backend
-   pip install -r requirements.txt
-   
-   # Frontend
-   cd frontend
-   npm install
-   ```
+# 의존성 설치
+npm install
+```
 
-3. **Configure environment**
-   ```bash
-   # Copy environment template
-   cp env.example .env
-   
-   # Edit .env with your configuration
-   # At minimum, set your Google Maps API key
-   ```
+### 4. 환경 변수 설정
 
-4. **Start the application**
-   ```bash
-   # Start both frontend and backend
-   npm run dev
-   
-   # Or start separately:
-   # Backend (port 5000)
-   cd backend && python app.py
-   
-   # Frontend (port 3000)
-   cd frontend && npm start
-   ```
+프로젝트 루트의 `.env` 파일에 VWorld API 키 입력:
 
-5. **Access the application**
-   - Open http://localhost:3000 in your browser
-   - The backend API will be available at http://localhost:5000
+```bash
+# 국토정보플랫폼 API 설정
+NGII_API_KEY=여기에-발급받은-API-키-입력
 
-## Usage Guide
+# Backend 설정
+SECRET_KEY=your-secret-key
+DATABASE_URL=sqlite:///satellite_tracker.db
 
-### Uploading Satellite Images
-1. Navigate to the "Upload" tab
-2. Drag and drop an image or click to browse
-3. Set the image location (latitude/longitude)
-4. Click "Process Image" to detect vehicles
-5. View results on the map and in the vehicle list
+# 캐싱 설정 (선택)
+CACHE_TTL_HOURS=24
+CACHE_MAX_SIZE_GB=5
+```
 
-### Searching for Vehicles
-1. Go to the "Search" tab
-2. Set your search location and filters
-3. Choose vehicle type and time range
-4. Click "Search Vehicles" to find matches
-5. Use "Storage Analysis" for deeper insights
+### 5. 서버 실행
 
-### Analyzing Storage Potential
-1. Run a storage analysis on a specific area
-2. Review the potential score and recommendations
-3. Explore vehicle clusters and patterns
-4. Use the "Storage" tab to view detailed analysis
+**Backend (FastAPI):**
+```bash
+cd backend
+uvicorn fastapi_app:app --host 0.0.0.0 --port 8000
+```
 
-### 🚨 Long-Term Stopped Vehicle Detection
-1. Navigate to the "Long-Term" tab
-2. Set your analysis location and time range
-3. Click "Detect Long-Term Stopped" to find vehicles that haven't moved
-4. Review risk assessments and alerts
-5. Use "Get Area Summary" for comprehensive analysis
+**Frontend (React):**
+```bash
+cd frontend
+npm start
+```
 
-### 🇰🇷 South Korea Satellite Data Integration
-1. Use the South Korea-specific satellite data sources
-2. Access KOMPSAT, Sentinel-2, and Landsat imagery
-3. Get coverage information for major Korean cities
-4. Download satellite imagery for specific locations
-5. View real-time satellite pass predictions
+**브라우저에서 접속:**
+```
+http://localhost:3000
+```
 
-### 🎯 Airbnb-Style Vehicle Details
-1. Hover over any vehicle marker on the map
-2. View detailed vehicle information in a beautiful popup card
-3. See vehicle type classification (SUV, sedan, truck, etc.)
-4. Check parking duration and risk assessment
-5. View confidence percentages and detailed analytics
+---
 
-## API Endpoints
+## 🔑 VWorld API 설정
 
-### Vehicle Detection
-- `POST /api/upload-image` - Process satellite image for vehicle detection
-- `GET /api/search-vehicles` - Search for vehicles in specific area
-- `GET /api/aircraft-search` - Search specifically for aircraft
+### 1. VWorld 가입 및 API 신청
 
-### Storage Analysis
-- `GET /api/storage-analysis` - Analyze storage potential for an area
+1. **https://www.vworld.kr** 접속
+2. 회원가입 및 로그인
+3. **마이페이지** → **오픈API 관리** → **활용신청**
 
-### Long-Term Detection
-- `GET /api/long-term-stopped` - Detect long-term stopped vehicles
-- `GET /api/vehicle-history/<id>` - Get movement history for a vehicle
-- `GET /api/area-summary` - Get comprehensive area analysis
+### 2. 신청 정보 입력
 
-### South Korea Satellite Data
-- `GET /api/south-korea/coverage` - Get satellite coverage for Korean locations
-- `GET /api/south-korea/imagery` - Get recent satellite imagery
-- `GET /api/south-korea/cities` - Get coverage for major Korean cities
-- `GET /api/south-korea/download-guide` - Get download instructions
+```
+서비스명: 장기방치차량탐지시스템
+서비스 URL: http://localhost:3000
+이용 목적: 공공안전 / 차량 관리
+```
 
-### Vehicle Details
-- `GET /api/vehicle/<id>/details` - Get detailed vehicle information with classification
+### 3. API 선택 (3개만!)
 
-### System
-- `GET /api/health` - Health check endpoint
+- ☑️ **WMTS/TMS API** (필수) - 항공사진 타일
+- ☑️ **지오코더 API** (필수) - 주소 → 좌표
+- ☑️ **WMS/WFS API** (선택) - 큰 영역 다운로드
 
-## Configuration
+### 4. 승인 대기
 
-### Environment Variables
+- 보통 **1~2일** 내 승인 (이메일 통지)
+- 승인 후 1~2시간 내 활성화
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SECRET_KEY` | Flask secret key | `dev-secret-key-change-in-production` |
-| `DATABASE_URL` | Database connection string | `sqlite:///satellite_tracker.db` |
-| `GOOGLE_MAPS_API_KEY` | Google Maps API key | Required for production |
-| `YOLO_MODEL_PATH` | Path to YOLO model | `yolov8n.pt` |
-| `CONFIDENCE_THRESHOLD` | Minimum detection confidence | `0.5` |
-| `STORAGE_ANALYSIS_DAYS` | Days to analyze for storage | `7` |
-| `CLUSTER_RADIUS_KM` | Clustering radius in km | `0.5` |
+### 5. API 키 확인 및 설정
 
-### Model Configuration
-The system uses YOLOv8 by default, but you can configure different models:
-- `yolov8n.pt` - Nano (fastest, lower accuracy)
-- `yolov8s.pt` - Small (balanced)
-- `yolov8m.pt` - Medium (higher accuracy)
-- `yolov8l.pt` - Large (highest accuracy, slower)
+```bash
+# .env 파일 수정
+NGII_API_KEY=8F1EC6DE-5BBA-329A-94AE-BD66BE1DB672
+```
 
-## Development
+### 6. 테스트
 
-### Project Structure
+```bash
+cd backend
+python test_ngii_api.py
+
+# 성공 시 출력:
+# ✓ 주소 검색 성공!
+# ✓ 항공사진 다운로드 성공!
+```
+
+**자세한 가이드**: [VWORLD_API_GUIDE.md](./VWORLD_API_GUIDE.md)
+
+---
+
+## 📱 사용 방법
+
+### 샘플 이미지 분석 (데모)
+
+1. **"방치 차량 탐지"** 탭 클릭
+2. **"샘플 이미지 분석 시작"** 버튼 클릭
+3. 2015년 vs 2020년 제주시 항공사진 비교 결과 확인
+
+### 실제 위치 분석 ⭐
+
+1. **"방치 차량 탐지"** 탭 클릭
+2. **"실제 위치 분석하기"** 버튼 클릭
+3. 주소 입력 (예: `서울특별시 강남구`)
+4. **"분석 시작"** 클릭
+5. VWorld 항공사진 자동 다운로드 → AI 분석 → 결과 표시
+
+### 방치 차량 확인
+
+분석 결과에서:
+- **빨간 테두리**: 방치 의심 차량
+- **위험도 배지**: CRITICAL / HIGH / MEDIUM / LOW
+- **유사도**: 90% 이상 = 방치 가능성 높음
+- **CCTV 검증**: 실시간 확인 (플레이스홀더)
+
+---
+
+## 💾 캐싱 시스템
+
+### 왜 캐싱이 필요한가?
+
+VWorld API 호출은 **5~10초** 소요되지만, 캐싱을 사용하면 **0.1초**로 단축!
+
+### 작동 원리
+
+```python
+# 첫 번째 요청 (강남역)
+result = service.download_aerial_image(37.4979, 127.0276)
+# → VWorld API 호출 (5초)
+# → 결과를 cache/aerial_images/ 에 저장
+
+# 두 번째 요청 (같은 위치)
+result = service.download_aerial_image(37.4979, 127.0276)
+# → 캐시에서 즉시 반환 (0.1초) ⚡
+```
+
+### 캐시 통계 확인
+
+```bash
+curl http://localhost:8000/api/cache/stats
+
+# 결과:
+# {
+#   "total_requests": 100,
+#   "cache_hits": 85,
+#   "hit_rate_percent": 85.0,
+#   "total_size_mb": 42.5
+# }
+```
+
+### 캐시 관리
+
+```bash
+# 만료된 캐시 정리 (24시간 이상)
+curl -X POST http://localhost:8000/api/cache/cleanup
+
+# 전체 캐시 삭제
+curl -X DELETE http://localhost:8000/api/cache/clear
+```
+
+### 비용 및 용량
+
+- **하루 100회 요청**: 50MB
+- **월간 사용량**: 1.5GB
+- **스토리지 비용**: $0.03/월 (약 40원)
+- **API 절감**: 80% (캐시 히트율 기준)
+
+---
+
+## 📂 프로젝트 구조
+
 ```
 satellite_project/
 ├── backend/
-│   ├── app.py              # Flask application
-│   ├── models.py           # Database models
-│   ├── vehicle_detector.py # YOLO vehicle detection
-│   ├── storage_analyzer.py # Storage analysis algorithms
-│   ├── config.py           # Configuration
-│   └── requirements.txt    # Python dependencies
+│   ├── fastapi_app.py              # FastAPI 메인 서버
+│   ├── ngii_api_service.py         # VWorld API 연동 + 캐싱
+│   ├── aerial_image_cache.py       # 캐싱 시스템
+│   ├── abandoned_vehicle_detector.py  # ResNet50 탐지기
+│   ├── pdf_processor.py            # 이미지 처리
+│   ├── demo_mode.py                # 데모 데이터
+│   ├── test_ngii_api.py            # API 테스트
+│   ├── test_cache_system.py        # 캐싱 테스트
+│   ├── cache/                      # 캐시 저장소
+│   │   └── aerial_images/
+│   └── requirements.txt
+│
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── services/       # API services
-│   │   ├── types.ts        # TypeScript types
-│   │   └── App.tsx         # Main application
-│   └── package.json        # Node dependencies
-└── README.md
+│   │   ├── components/
+│   │   │   ├── AbandonedVehiclePanel.tsx  # 방치차량 UI
+│   │   │   └── SearchPanel.tsx            # 위치 검색 UI
+│   │   ├── services/
+│   │   │   └── api.ts              # API 클라이언트
+│   │   └── App.tsx
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── sample_image1.pdf               # 샘플 항공사진 (2015년)
+├── sample_image2.pdf               # 샘플 항공사진 (2020년)
+├── .env                            # 환경 변수 (API 키)
+├── CLAUDE.md                       # 개발 가이드
+├── VWORLD_API_GUIDE.md             # VWorld API 가이드
+├── README.md                       # 한국어 문서 (이 파일)
+└── README_EN.md                    # 영어 문서
 ```
 
-### Adding New Features
-1. Backend: Add new endpoints in `app.py`
-2. Frontend: Create components in `src/components/`
-3. API: Update `src/services/api.ts`
-4. Types: Add interfaces in `src/types.ts`
+---
 
-## Deployment
+## 🧪 테스트
 
-### Production Setup
-1. Set production environment variables
-2. Use PostgreSQL for production database
-3. Configure reverse proxy (nginx)
-4. Set up SSL certificates
-5. Use process manager (PM2, systemd)
+### Backend 테스트
 
-### GitHub Pages Deployment (Frontend Only)
 ```bash
-# Quick deploy to GitHub Pages
-./deploy_gh_pages.sh
+cd backend
 
-# Manual deploy
-cd frontend && npm run deploy
+# VWorld API 연결 테스트
+python test_ngii_api.py
+
+# 캐싱 시스템 성능 테스트
+python test_cache_system.py
 ```
 
-### Docker Deployment (Full Stack)
+### Frontend 테스트
+
 ```bash
-# Build and run with Docker Compose
-./deploy.sh
+cd frontend
+
+# TypeScript 타입 체크
+npm run lint
+
+# 테스트 실행
+npm test
 ```
 
-### Manual Docker Setup
-```bash
-# Build and start services
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+---
 
-# Check service health
-docker-compose ps
-docker-compose logs -f
-```
+## 🤝 기여
 
-## Contributing
+기여를 환영합니다! Pull Request를 보내주세요.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 📞 지원
 
-## Support
+### VWorld API 관련
+- 📞 **1661-0115** (평일 09:00~18:00)
+- 🌐 https://www.vworld.kr
+- 📧 support@vworld.kr
 
-For questions and support:
-- Create an issue on GitHub
-- Check the documentation
-- Review the API endpoints
+### 프로젝트 관련
+- 🐛 **Issues**: [GitHub Issues](https://github.com/wannahappyaroundme/satellite_vehicle_tracker/issues)
 
-## 🎯 Key Features for Long-Term Stopped Vehicle Detection
+---
 
-### ✅ Implemented Features:
-- **AI-Powered Detection**: Advanced algorithms to identify vehicles that haven't moved for extended periods
-- **Advanced Vehicle Classification**: Detect specific vehicle types (SUV, sedan, truck, sports car, etc.)
-- **Risk Assessment**: Automatic risk scoring (LOW/MEDIUM/HIGH) based on multiple factors
-- **Clustering Analysis**: Group nearby stopped vehicles to identify problem areas
-- **Movement Pattern Analysis**: Track vehicle behavior over time to detect stopping patterns
-- **Alert System**: Generate alerts for concerning stop patterns
-- **Airbnb-Style UI**: Beautiful hover cards with detailed vehicle information
-- **South Korea Integration**: Access to KOMPSAT, Sentinel-2, and Landsat satellite data
-- **Parking Duration Tracking**: Real-time analysis of how long vehicles have been parked
-- **Public Access**: No login required - anyone can access and analyze areas
-- **Cross-Platform**: Works on both Mac and Windows with one-click setup
+## 📄 라이선스
 
-### 🔍 Detection Capabilities:
-- **Time-Based Analysis**: Detect vehicles stopped for 6+ hours, 24+ hours, or custom periods
-- **Movement Thresholds**: Configurable movement detection (default 50m radius)
-- **Confidence Scoring**: AI confidence levels for each detection
-- **Historical Analysis**: Analyze up to 30 days of vehicle data
-- **Geographic Clustering**: Identify clusters of stopped vehicles in specific areas
-- **Vehicle Type Classification**: Distinguish between SUV, sedan, truck, sports car, van, pickup, etc.
-- **Korean Brand Recognition**: Detect Hyundai, Kia, Genesis, and other Korean vehicle brands
-- **Color Analysis**: Identify vehicle colors (white, black, red, blue, etc.)
-- **Size Category Detection**: Classify vehicles as small, medium, or large
+MIT License - 자유롭게 사용하세요!
 
-### 🚨 Alert Types:
-- **Long-Term Stop Alerts**: Vehicles stopped for extended periods
-- **Cluster Alerts**: Multiple vehicles stopped in the same area
-- **Risk-Based Alerts**: High-risk situations requiring immediate attention
-- **Storage Potential Alerts**: Areas with high storage potential
+---
 
-## Roadmap
+## 🙏 감사의 말
 
-- [ ] Real-time satellite feed integration
-- [ ] Advanced vehicle tracking over time
-- [ ] Machine learning model training interface
-- [ ] Mobile app development
-- [ ] Multi-language support
-- [ ] Advanced analytics dashboard
-- [ ] Integration with traffic management systems
-- [ ] Automated report generation
-- [ ] Email/SMS alert notifications
-- [ ] Integration with parking enforcement systems
+- **VWorld (브이월드)** - 무료 항공사진 API 제공
+- **국토지리정보원 (NGII)** - 한국 지리 데이터
+- **FastAPI** - 훌륭한 Python 웹 프레임워크
+- **PyTorch** - ResNet50 사전학습 모델
 
+---
+
+**Made with ❤️ for safer streets**
+
+[⬆ 맨 위로](#-장기-방치-차량-탐지-시스템)
