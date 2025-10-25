@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, AlertTriangle, MapPin, Calendar, Download } from 'lucide-react';
 
 interface VehicleStats {
