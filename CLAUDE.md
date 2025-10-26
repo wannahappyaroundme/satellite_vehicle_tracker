@@ -11,13 +11,19 @@ This is a full-stack application that detects long-term abandoned vehicles by co
 **Primary Use Case:** Analyze aerial photos from 국토정보플랫폼 (National Geographic Information Platform) to detect vehicles abandoned in the same location for 1+ years, with CCTV verification capability.
 
 **Tech Stack:**
-- Backend: Python FastAPI (new) + Flask (legacy) with ResNet/YOLO for AI detection
+- Backend: Python FastAPI with ResNet/YOLO for AI detection
 - Frontend: React + TypeScript with Leaflet for mapping
 - Database: SQLite (SQLAlchemy ORM)
 - AI Models:
   - ResNet50 for feature extraction (abandoned vehicle detection)
-  - YOLOv8 for object detection (legacy vehicle tracking)
-  - Custom classifiers for vehicle type analysis
+  - YOLOv8 for object detection (vehicle tracking)
+  - DBSCAN clustering for hotspot detection
+- APIs:
+  - VWorld WMTS API (5-10x faster than WMS)
+  - VWorld POI Search API
+  - VWorld 2D/Hybrid Map API
+- Automation:
+  - APScheduler (12-hour interval automated scanning)
 
 ## Essential Commands
 
