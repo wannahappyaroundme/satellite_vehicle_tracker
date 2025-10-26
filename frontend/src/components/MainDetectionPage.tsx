@@ -247,6 +247,36 @@ const MainDetectionPage: React.FC = () => {
     setImagePosition({ x: 0, y: 0 });
   };
 
+  // 위성 이미지 줌/팬 핸들러
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setImageScale(prev => Math.max(0.5, Math.min(5, prev + delta)));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      setImagePosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const resetZoom = () => {
+    setImageScale(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
   // 지도 이동 시 현재 위치 주소 가져오기 (역지오코딩)
   const handleMapMove = async (center: [number, number], zoom: number) => {
     setMapCenter(center);
@@ -413,6 +443,55 @@ const MainDetectionPage: React.FC = () => {
           <PopupWindow>
             <PopupHeader>
               <PopupWindowTitle>방치 차량 상세 정보</PopupWindowTitle>
+              <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                <button
+                  onClick={() => setImageScale(prev => Math.min(5, prev + 0.2))}
+                  style={{
+                    padding: '5px 10px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  +
+                </button>
+                <span style={{fontSize: '14px', fontWeight: 'bold', minWidth: '50px', textAlign: 'center'}}>
+                  {Math.round(imageScale * 100)}%
+                </span>
+                <button
+                  onClick={() => setImageScale(prev => Math.max(0.5, prev - 0.2))}
+                  style={{
+                    padding: '5px 10px',
+                    background: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  -
+                </button>
+                <button
+                  onClick={resetZoom}
+                  style={{
+                    padding: '5px 10px',
+                    background: '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
               <CloseButton onClick={() => setShowSatellitePopup(false)}>×</CloseButton>
             </PopupHeader>
 
