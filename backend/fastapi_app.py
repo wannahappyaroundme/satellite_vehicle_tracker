@@ -26,6 +26,7 @@ from security import rate_limiter, InputValidator, DataProtection, SQLSafetyChec
 from auto_scheduler import get_scheduler
 from database import SessionLocal
 from models_sqlalchemy import AbandonedVehicle, AnalysisLog
+from analytics_service import get_analytics_service
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -1307,6 +1308,127 @@ async def delete_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
         db.rollback()
         logger.error(f"차량 삭제 실패: {e}")
         raise HTTPException(status_code=500, detail=f"차량 삭제 실패: {str(e)}")
+
+
+# ===== DATA ANALYTICS ENDPOINTS =====
+
+@app.get("/api/analytics/clustering")
+async def analyze_clustering(
+    eps_km: float = Query(0.5, description="클러스터 반경 (km)"),
+    min_samples: int = Query(3, description="최소 차량 수"),
+    db: Session = Depends(get_db)
+):
+    """
+    DBSCAN 클러스터링 분석
+
+    Args:
+        eps_km: 클러스터 반경 (km)
+        min_samples: 클러스터 최소 차량 수
+
+    Returns:
+        클러스터별 차량 밀집 지역 및 통계
+    """
+    try:
+        # DB에서 모든 방치 차량 조회
+        vehicles_db = db.query(AbandonedVehicle).all()
+        vehicles = [v.to_dict() for v in vehicles_db]
+
+        # 클러스터링 수행
+        analytics = get_analytics_service()
+        result = analytics.perform_clustering(
+            vehicles=vehicles,
+            eps_km=eps_km,
+            min_samples=min_samples
+        )
+
+        return result
+    except Exception as e:
+        logger.error(f"클러스터링 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"클러스터링 분석 실패: {str(e)}")
+
+
+@app.get("/api/analytics/heatmap")
+async def generate_heatmap(
+    grid_size: float = Query(0.01, description="그리드 크기 (degrees, 약 1km)"),
+    db: Session = Depends(get_db)
+):
+    """
+    히트맵 데이터 생성 (위험도 가중 밀도)
+
+    Args:
+        grid_size: 그리드 크기 (degrees)
+
+    Returns:
+        그리드별 차량 밀도 및 위험도
+    """
+    try:
+        # DB에서 모든 방치 차량 조회
+        vehicles_db = db.query(AbandonedVehicle).all()
+        vehicles = [v.to_dict() for v in vehicles_db]
+
+        # 히트맵 생성
+        analytics = get_analytics_service()
+        result = analytics.generate_heatmap_data(
+            vehicles=vehicles,
+            grid_size=grid_size
+        )
+
+        return result
+    except Exception as e:
+        logger.error(f"히트맵 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"히트맵 생성 실패: {str(e)}")
+
+
+@app.get("/api/analytics/by-city")
+async def analyze_by_city(db: Session = Depends(get_db)):
+    """
+    시/도별 통계 분석
+
+    Returns:
+        시/도별 차량 수, 위험도 분포, 평균 유사도
+    """
+    try:
+        # DB에서 모든 방치 차량 조회
+        vehicles_db = db.query(AbandonedVehicle).all()
+        vehicles = [v.to_dict() for v in vehicles_db]
+
+        # 시/도별 분석
+        analytics = get_analytics_service()
+        result = analytics.analyze_by_city(vehicles=vehicles)
+
+        return result
+    except Exception as e:
+        logger.error(f"시/도별 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"시/도별 분석 실패: {str(e)}")
+
+
+@app.get("/api/analytics/trends")
+async def analyze_trends(
+    days: int = Query(30, description="분석 기간 (일)"),
+    db: Session = Depends(get_db)
+):
+    """
+    시간대별 트렌드 분석
+
+    Args:
+        days: 분석 기간 (일)
+
+    Returns:
+        일별 차량 추가 추이 및 위험도 분포
+    """
+    try:
+        # DB에서 모든 방치 차량 조회
+        vehicles_db = db.query(AbandonedVehicle).all()
+        vehicles = [v.to_dict() for v in vehicles_db]
+
+        # 트렌드 분석
+        analytics = get_analytics_service()
+        result = analytics.analyze_trends(vehicles=vehicles, days=days)
+
+        return result
+    except Exception as e:
+        logger.error(f"트렌드 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"트렌드 분석 실패: {str(e)}")
 
 
 if __name__ == "__main__":
