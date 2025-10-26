@@ -118,8 +118,6 @@ const MainDetectionPage: React.FC = () => {
       };
       setSigunguList(sigunguMap[sido] || []);
       setSigungu('');
-      setDong('');
-      setJibun('');
     }
   }, [sido]);
 
