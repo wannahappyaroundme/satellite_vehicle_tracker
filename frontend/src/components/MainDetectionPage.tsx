@@ -438,7 +438,19 @@ const MainDetectionPage: React.FC = () => {
                 {selectedVehicle.latitude && selectedVehicle.longitude ? (
                   <SatelliteWrapper>
                     {/* 3x3 Grid of Satellite Tiles for better coverage */}
-                    <SatelliteTileGrid>
+                    <SatelliteTileGrid
+                      onWheel={handleWheel}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      style={{
+                        transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale})`,
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        transformOrigin: 'center center',
+                        transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                      }}
+                    >
                       {(() => {
                         const zoom = 18;
                         const centerX = Math.floor((selectedVehicle.longitude + 180) / 360 * Math.pow(2, zoom));
