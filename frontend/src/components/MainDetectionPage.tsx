@@ -69,8 +69,6 @@ const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ c
 const MainDetectionPage: React.FC = () => {
   const [sido, setSido] = useState('');
   const [sigungu, setSigungu] = useState('');
-  const [dong, setDong] = useState('');
-  const [jibun, setJibun] = useState('');
 
   const [sidoList] = useState([
     '서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시',
@@ -142,9 +140,7 @@ const MainDetectionPage: React.FC = () => {
       const response = await axios.get(`${API_BASE_URL}${endpoint}`, {
         params: {
           sido,
-          sigungu: sigungu || undefined,
-          dong: dong || undefined,
-          jibun: jibun || undefined
+          sigungu: sigungu || undefined
         }
       });
 
@@ -172,6 +168,16 @@ const MainDetectionPage: React.FC = () => {
   };
 
   // DB에서 방치 차량 로드 (자동 분석 결과)
+  // 관리자 대시보드 비밀번호 인증
+  const handleAdminClick = () => {
+    const password = prompt('관리자 비밀번호를 입력하세요:');
+    if (password === 'Matthew0917') {
+      setShowAdminDashboard(true);
+    } else if (password !== null) {
+      alert('❌ 비밀번호가 올바르지 않습니다.');
+    }
+  };
+
   const loadVehiclesFromDB = async () => {
     setLoadingVehicles(true);
     setStatusMessage('DB에서 방치 차량 로드 중...');
@@ -291,21 +297,7 @@ const MainDetectionPage: React.FC = () => {
             ))}
           </Select>
 
-          <Input
-            type="text"
-            placeholder="동/읍/면 (선택)"
-            value={dong}
-            onChange={(e) => setDong(e.target.value)}
-            disabled={loading || loadingVehicles}
-          />
 
-          <Input
-            type="text"
-            placeholder="지번 (선택)"
-            value={jibun}
-            onChange={(e) => setJibun(e.target.value)}
-            disabled={loading || loadingVehicles}
-          />
 
           <SearchButton onClick={handleSearch} disabled={!sido || loading || loadingVehicles}>
             {loading ? <Loader size={20} className="spin" /> : <Search size={20} />}
@@ -325,7 +317,7 @@ const MainDetectionPage: React.FC = () => {
               </StatsButton>
             )}
 
-            <AdminButton onClick={() => setShowAdminDashboard(true)}>
+            <AdminButton onClick={handleAdminClick}>
               <Settings size={20} />
               관리자
             </AdminButton>
