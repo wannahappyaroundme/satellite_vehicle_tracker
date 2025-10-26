@@ -27,6 +27,7 @@ from auto_scheduler import get_scheduler
 from database import SessionLocal
 from models_sqlalchemy import AbandonedVehicle, AnalysisLog
 from analytics_service import get_analytics_service
+from vworld_search_service import get_vworld_search_service
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -1429,6 +1430,133 @@ async def analyze_trends(
     except Exception as e:
         logger.error(f"트렌드 분석 실패: {e}")
         raise HTTPException(status_code=500, detail=f"트렌드 분석 실패: {str(e)}")
+
+
+# ===== VWORLD ADDITIONAL API ENDPOINTS =====
+
+@app.get("/api/vworld/search-poi")
+async def search_poi(
+    query: str = Query(..., description="검색어 (예: 주차장, CCTV)"),
+    lat: Optional[float] = Query(None, description="중심 위도"),
+    lon: Optional[float] = Query(None, description="중심 경도"),
+    radius: int = Query(1000, description="검색 반경 (미터)"),
+    count: int = Query(10, description="결과 개수")
+):
+    """
+    VWorld POI (Point of Interest) 검색
+
+    Args:
+        query: 검색어
+        lat: 중심 위도
+        lon: 중심 경도
+        radius: 검색 반경 (미터)
+        count: 결과 개수
+
+    Returns:
+        POI 검색 결과
+    """
+    try:
+        search_service = get_vworld_search_service()
+        result = search_service.search_poi(
+            query=query,
+            lat=lat,
+            lon=lon,
+            radius=radius,
+            count=count
+        )
+        return result
+    except Exception as e:
+        logger.error(f"POI 검색 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"POI 검색 실패: {str(e)}")
+
+
+@app.get("/api/vworld/parking-lots")
+async def search_parking_lots(
+    lat: float = Query(..., description="중심 위도"),
+    lon: float = Query(..., description="중심 경도"),
+    radius: int = Query(2000, description="검색 반경 (미터)")
+):
+    """
+    주차장 검색
+
+    Args:
+        lat: 중심 위도
+        lon: 중심 경도
+        radius: 검색 반경 (미터)
+
+    Returns:
+        주변 주차장 목록
+    """
+    try:
+        search_service = get_vworld_search_service()
+        result = search_service.search_parking_lots(lat=lat, lon=lon, radius=radius)
+        return result
+    except Exception as e:
+        logger.error(f"주차장 검색 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"주차장 검색 실패: {str(e)}")
+
+
+@app.get("/api/vworld/cctv")
+async def search_cctv(
+    lat: float = Query(..., description="중심 위도"),
+    lon: float = Query(..., description="중심 경도"),
+    radius: int = Query(1000, description="검색 반경 (미터)")
+):
+    """
+    CCTV 검색 (데모 데이터)
+
+    Args:
+        lat: 중심 위도
+        lon: 중심 경도
+        radius: 검색 반경 (미터)
+
+    Returns:
+        주변 CCTV 목록
+    """
+    try:
+        search_service = get_vworld_search_service()
+        result = search_service.search_cctv(lat=lat, lon=lon, radius=radius)
+        return result
+    except Exception as e:
+        logger.error(f"CCTV 검색 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"CCTV 검색 실패: {str(e)}")
+
+
+@app.get("/api/vworld/map-tile-url")
+async def get_map_tile_url(
+    map_type: str = Query("base", description="지도 타입: base, hybrid"),
+    z: int = Query(..., description="줌 레벨"),
+    x: int = Query(..., description="타일 X 좌표"),
+    y: int = Query(..., description="타일 Y 좌표")
+):
+    """
+    VWorld 2D 지도 타일 URL 반환
+
+    Args:
+        map_type: 지도 타입 (base, hybrid)
+        z: 줌 레벨
+        x: 타일 X 좌표
+        y: 타일 Y 좌표
+
+    Returns:
+        타일 URL
+    """
+    try:
+        search_service = get_vworld_search_service()
+
+        if map_type == 'hybrid':
+            url = search_service.get_hybrid_map_tile_url(z, x, y)
+        else:
+            url = search_service.get_2d_map_tile_url(z, x, y)
+
+        return {
+            'success': True,
+            'tile_url': url,
+            'map_type': map_type
+        }
+    except Exception as e:
+        logger.error(f"타일 URL 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"타일 URL 생성 실패: {str(e)}")
 
 
 if __name__ == "__main__":
