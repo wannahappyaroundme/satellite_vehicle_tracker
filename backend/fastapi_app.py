@@ -23,8 +23,9 @@ from demo_mode import get_demo_coordinates, get_demo_analysis_result
 from aerial_image_cache import get_cache
 from logging_config import setup_logging, PerformanceLogger, SecurityLogger, log_performance
 from security import rate_limiter, InputValidator, DataProtection, SQLSafetyChecker
-# from auto_scheduler import get_scheduler  # TODO: Enable after DB models setup
-from abandoned_vehicle_storage import get_storage  # Use in-memory storage for now
+from auto_scheduler import get_scheduler
+from database import SessionLocal
+from models_sqlalchemy import AbandonedVehicle, AnalysisLog
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -232,21 +233,24 @@ SAMPLE_CCTV_DATA = [
 ]
 
 
-# TODO: Enable scheduler after DB setup
-# @app.on_event("startup")
-# async def startup_event():
-#     """앱 시작 시 스케줄러 시작"""
-#     scheduler = get_scheduler()
-#     scheduler.start()
-#     logger.info("✅ FastAPI 앱 시작 - 자동 스케줄러 활성화됨")
-#
-#
-# @app.on_event("shutdown")
-# async def shutdown_event():
-#     """앱 종료 시 스케줄러 중지"""
-#     scheduler = get_scheduler()
-#     scheduler.stop()
-#     logger.info("⏹️  FastAPI 앱 종료 - 자동 스케줄러 중지됨")
+@app.on_event("startup")
+async def startup_event():
+    """앱 시작 시 스케줄러 시작"""
+    scheduler = get_scheduler()
+    scheduler.start()
+    logger.info("=" * 60)
+    logger.info("✅ FastAPI 앱 시작 - 자동 스케줄러 활성화됨")
+    logger.info("⏰ 12시간 간격 실행: 매일 0시, 12시")
+    logger.info("📍 분석 대상: 전국 250개 시/군/구")
+    logger.info("=" * 60)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """앱 종료 시 스케줄러 중지"""
+    scheduler = get_scheduler()
+    scheduler.stop()
+    logger.info("⏹️  FastAPI 앱 종료 - 자동 스케줄러 중지됨")
 
 
 @app.get("/")
@@ -439,54 +443,58 @@ async def get_abandoned_vehicles(
     risk_level: Optional[str] = Query(None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$", description="위험도 필터"),
     city: Optional[str] = Query(None, description="시/도 필터"),
     district: Optional[str] = Query(None, description="시/군/구 필터"),
-    status: Optional[str] = Query(None, description="상태 필터 (detected/verified/removed)"),
+    status: Optional[str] = Query(None, description="상태 필터 (DETECTED/INVESTIGATING/VERIFIED/RESOLVED)"),
     limit: int = Query(100, ge=1, le=1000, description="최대 결과 수")
 ):
     """
-    저장된 방치 차량 조회
+    저장된 방치 차량 조회 (SQLite DB)
 
     Query parameters:
     - min_similarity: 최소 유사도 (기본값: 0.85)
     - risk_level: 위험도 필터 (LOW/MEDIUM/HIGH/CRITICAL)
     - city: 시/도 필터 (예: "서울특별시")
     - district: 시/군/구 필터 (예: "강남구")
-    - status: 상태 필터 (detected/verified/removed)
+    - status: 상태 필터 (DETECTED/INVESTIGATING/VERIFIED/RESOLVED)
     - limit: 최대 결과 수 (기본값: 100)
     """
+    db = SessionLocal()
     try:
-        # Get storage instance
-        storage = get_storage()
+        # Build query with filters
+        query = db.query(AbandonedVehicle)
 
-        # Get all vehicles from storage
-        all_vehicles = storage.get_all_vehicles()
+        # Similarity filter
+        query = query.filter(AbandonedVehicle.similarity_score >= min_similarity)
 
-        # Apply filters
-        results = []
-        for v in all_vehicles:
-            # Similarity filter
-            if v.get('similarity_percentage', 0) / 100 < min_similarity:
-                continue
+        # Risk level filter
+        if risk_level:
+            query = query.filter(AbandonedVehicle.risk_level == risk_level)
 
-            # Risk level filter
-            if risk_level and v.get('risk_level') != risk_level:
-                continue
+        # City filter
+        if city:
+            query = query.filter(AbandonedVehicle.city == city)
 
-            # City filter
-            if city and city not in v.get('address', ''):
-                continue
+        # District filter
+        if district:
+            query = query.filter(AbandonedVehicle.district == district)
 
-            # District filter
-            if district and district not in v.get('address', ''):
-                continue
+        # Status filter
+        if status:
+            query = query.filter(AbandonedVehicle.status == status.upper())
 
-            # Status filter
-            if status and v.get('status') != status:
-                continue
-
-            results.append(v)
+        # Order by risk level and latest detection
+        query = query.order_by(
+            AbandonedVehicle.risk_level.desc(),
+            AbandonedVehicle.last_detected.desc()
+        )
 
         # Limit results
-        results = results[:limit]
+        query = query.limit(limit)
+
+        # Execute query
+        vehicles = query.all()
+
+        # Convert to dict
+        results = [v.to_dict() for v in vehicles]
 
         return {
             "success": True,
@@ -499,11 +507,15 @@ async def get_abandoned_vehicles(
                 "status": status
             },
             "abandoned_vehicles": results,
-            "message": "영구 방치 차량 DB에서 조회 (실시간 업데이트)"
+            "message": "SQLite DB에서 조회 (영구 저장소)",
+            "storage_type": "sqlite"
         }
 
     except Exception as e:
+        logger.error(f"DB query failed: {e}")
         raise HTTPException(status_code=500, detail=f"조회 실패: {str(e)}")
+    finally:
+        db.close()
 
 
 @app.get("/api/cctv-locations")
@@ -699,8 +711,7 @@ async def analyze_location(
             return get_demo_analysis_result(latitude, longitude, address)
 
         # Real API mode (VWorld에서 실제 항공사진 다운로드)
-        from abandoned_vehicle_storage import get_storage
-        storage = get_storage()
+        # SQLite DB 사용
 
         # 현재 항공사진 다운로드 (zoom 18 = 고해상도)
         current_result = ngii_service.download_high_resolution_area(
@@ -729,26 +740,51 @@ async def analyze_location(
         vehicle_det = VehicleDetector()
         detections = vehicle_det.detect_vehicles(current_image)
 
-        # ⭐ 감지된 차량을 DB에 저장 (고정된 방치 차량으로!)
+        # ⭐ 감지된 차량을 SQLite DB에 저장 (고정된 방치 차량으로!)
         # 유사도가 90% 이상인 차량만 방치 차량으로 간주
+        db = SessionLocal()
         saved_vehicles = []
-        for detection in detections:
-            # 방치 차량으로 간주되는 조건 (예: confidence >= 0.9)
-            if detection.get('confidence', 0) >= 0.9:
-                vehicle_data = {
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "address": address,
-                    "vehicle_type": detection.get('vehicle_type', 'car'),
-                    "similarity_score": detection.get('confidence', 0.9),
-                    "risk_level": "HIGH" if detection.get('confidence', 0) >= 0.95 else "MEDIUM",
-                    "years_difference": 1,  # 실제로는 이미지 비교에서 얻어야 함
-                    "bbox": detection.get('bbox', {})
-                }
+        try:
+            # Extract city/district from address
+            parts = address.split()
+            city = parts[0] if len(parts) >= 1 else None
+            district = parts[1] if len(parts) >= 2 else None
 
-                # DB에 저장
-                saved_vehicle = storage.add_vehicle(vehicle_data)
-                saved_vehicles.append(saved_vehicle)
+            for detection in detections:
+                # 방치 차량으로 간주되는 조건 (예: confidence >= 0.9)
+                if detection.get('confidence', 0) >= 0.9:
+                    # Generate unique vehicle ID
+                    import hashlib
+                    vehicle_id = f"vehicle_{hashlib.md5(f'{latitude}{longitude}{detection.get('bbox', {})}'.encode()).hexdigest()[:16]}"
+
+                    # Check if vehicle already exists
+                    existing = db.query(AbandonedVehicle).filter(
+                        AbandonedVehicle.vehicle_id == vehicle_id
+                    ).first()
+
+                    if not existing:
+                        # Create new vehicle
+                        confidence = detection.get('confidence', 0.9)
+                        vehicle = AbandonedVehicle(
+                            vehicle_id=vehicle_id,
+                            latitude=latitude,
+                            longitude=longitude,
+                            city=city,
+                            district=district,
+                            address=address,
+                            vehicle_type=detection.get('vehicle_type', 'car'),
+                            similarity_score=confidence,
+                            similarity_percentage=confidence * 100,
+                            risk_level="HIGH" if confidence >= 0.95 else "MEDIUM",
+                            years_difference=1,  # 실제로는 이미지 비교에서 얻어야 함
+                            bbox_data=detection.get('bbox', {})
+                        )
+                        db.add(vehicle)
+                        db.commit()
+                        db.refresh(vehicle)
+                        saved_vehicles.append(vehicle.to_dict())
+        finally:
+            db.close()
 
         return {
             "success": True,
@@ -782,7 +818,7 @@ async def analyze_location(
 
 @app.get("/api/admin/vehicles/all")
 async def admin_get_all_vehicles(
-    status: Optional[str] = Query(None, description="상태 필터: DETECTED, INVESTIGATING, RESOLVED"),
+    status: Optional[str] = Query(None, description="상태 필터: DETECTED, INVESTIGATING, VERIFIED, RESOLVED"),
     risk_level: Optional[str] = Query(None, description="위험도 필터: CRITICAL, HIGH, MEDIUM, LOW")
 ):
     """
@@ -792,23 +828,30 @@ async def admin_get_all_vehicles(
     - status: 상태 필터
     - risk_level: 위험도 필터
     """
-    from abandoned_vehicle_storage import get_storage
-    storage = get_storage()
+    db = SessionLocal()
+    try:
+        query = db.query(AbandonedVehicle)
 
-    vehicles = storage.get_all_vehicles(
-        status_filter=status,
-        risk_level_filter=risk_level
-    )
+        if status:
+            query = query.filter(AbandonedVehicle.status == status.upper())
 
-    return {
-        "success": True,
-        "total": len(vehicles),
-        "filters": {
-            "status": status,
-            "risk_level": risk_level
-        },
-        "vehicles": vehicles
-    }
+        if risk_level:
+            query = query.filter(AbandonedVehicle.risk_level == risk_level.upper())
+
+        vehicles = query.all()
+        vehicles_dict = [v.to_dict() for v in vehicles]
+
+        return {
+            "success": True,
+            "total": len(vehicles_dict),
+            "filters": {
+                "status": status,
+                "risk_level": risk_level
+            },
+            "vehicles": vehicles_dict
+        }
+    finally:
+        db.close()
 
 
 @app.get("/api/admin/vehicles/statistics")
@@ -819,21 +862,62 @@ async def admin_get_statistics():
     Returns:
         전체 차량 수, 상태별/위험도별/차량타입별 통계
     """
-    from abandoned_vehicle_storage import get_storage
-    storage = get_storage()
+    db = SessionLocal()
+    try:
+        # 총 차량 수
+        total_vehicles = db.query(AbandonedVehicle).count()
 
-    stats = storage.get_statistics()
+        # 상태별 통계
+        by_status = {}
+        for status in ['DETECTED', 'INVESTIGATING', 'VERIFIED', 'RESOLVED']:
+            count = db.query(AbandonedVehicle).filter(
+                AbandonedVehicle.status == status
+            ).count()
+            by_status[status] = count
 
-    return {
-        "success": True,
-        "statistics": stats
-    }
+        # 위험도별 통계
+        by_risk_level = {}
+        for risk in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
+            count = db.query(AbandonedVehicle).filter(
+                AbandonedVehicle.risk_level == risk
+            ).count()
+            by_risk_level[risk] = count
+
+        # 차량 타입별 통계
+        from sqlalchemy import func
+        vehicle_types = db.query(
+            AbandonedVehicle.vehicle_type,
+            func.count(AbandonedVehicle.id)
+        ).group_by(AbandonedVehicle.vehicle_type).all()
+
+        by_vehicle_type = {vtype: count for vtype, count in vehicle_types if vtype}
+
+        # 시/도별 통계
+        cities = db.query(
+            AbandonedVehicle.city,
+            func.count(AbandonedVehicle.id)
+        ).group_by(AbandonedVehicle.city).all()
+
+        by_city = {city: count for city, count in cities if city}
+
+        return {
+            "success": True,
+            "statistics": {
+                "total_vehicles": total_vehicles,
+                "by_status": by_status,
+                "by_risk_level": by_risk_level,
+                "by_vehicle_type": by_vehicle_type,
+                "by_city": by_city
+            }
+        }
+    finally:
+        db.close()
 
 
 @app.put("/api/admin/vehicles/{vehicle_id}/status")
 async def admin_update_vehicle_status(
     vehicle_id: str,
-    status: str = Query(..., pattern="^(DETECTED|INVESTIGATING|RESOLVED)$"),
+    status: str = Query(..., pattern="^(DETECTED|INVESTIGATING|VERIFIED|RESOLVED)$"),
     notes: Optional[str] = Query(None, description="메모")
 ):
     """
@@ -841,22 +925,46 @@ async def admin_update_vehicle_status(
 
     Parameters:
     - vehicle_id: 차량 ID
-    - status: 새 상태 (DETECTED, INVESTIGATING, RESOLVED)
+    - status: 새 상태 (DETECTED, INVESTIGATING, VERIFIED, RESOLVED)
     - notes: 메모 (선택)
     """
-    from abandoned_vehicle_storage import get_storage
-    storage = get_storage()
+    db = SessionLocal()
+    try:
+        vehicle = db.query(AbandonedVehicle).filter(
+            AbandonedVehicle.vehicle_id == vehicle_id
+        ).first()
 
-    updated_vehicle = storage.update_vehicle_status(vehicle_id, status, notes)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
 
-    if not updated_vehicle:
-        raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
+        # Update status using model method
+        if status.upper() == 'VERIFIED':
+            vehicle.mark_as_verified(notes)
+        elif status.upper() == 'RESOLVED':
+            vehicle.mark_as_resolved(notes)
+        else:
+            vehicle.status = status.upper()
+            if notes:
+                if vehicle.verification_notes:
+                    vehicle.verification_notes += f"\n[{datetime.now().isoformat()}] {notes}"
+                else:
+                    vehicle.verification_notes = f"[{datetime.now().isoformat()}] {notes}"
 
-    return {
-        "success": True,
-        "message": f"차량 {vehicle_id} 상태가 {status}로 업데이트되었습니다",
-        "vehicle": updated_vehicle
-    }
+        db.commit()
+        db.refresh(vehicle)
+
+        return {
+            "success": True,
+            "message": f"차량 {vehicle_id} 상태가 {status}로 업데이트되었습니다",
+            "vehicle": vehicle.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"업데이트 실패: {str(e)}")
+    finally:
+        db.close()
 
 
 @app.delete("/api/admin/vehicles/{vehicle_id}")
@@ -867,38 +975,49 @@ async def admin_delete_vehicle(vehicle_id: str):
     Parameters:
     - vehicle_id: 차량 ID
     """
-    from abandoned_vehicle_storage import get_storage
-    storage = get_storage()
+    db = SessionLocal()
+    try:
+        vehicle = db.query(AbandonedVehicle).filter(
+            AbandonedVehicle.vehicle_id == vehicle_id
+        ).first()
 
-    deleted = storage.delete_vehicle(vehicle_id)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
 
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Vehicle {vehicle_id} not found")
+        db.delete(vehicle)
+        db.commit()
 
-    return {
-        "success": True,
-        "message": f"차량 {vehicle_id}가 삭제되었습니다"
-    }
+        return {
+            "success": True,
+            "message": f"차량 {vehicle_id}가 삭제되었습니다"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"삭제 실패: {str(e)}")
+    finally:
+        db.close()
 
 
 # ===== UTILITY ENDPOINTS =====
 
-# TODO: Enable after DB/scheduler setup
-# @app.post("/api/admin/trigger-analysis")
-# async def trigger_analysis():
-#     """
-#     수동으로 방치 차량 분석 실행 (관리자/테스트용)
-#
-#     자동 스케줄러를 기다리지 않고 즉시 분석을 실행합니다.
-#     """
-#     scheduler = get_scheduler()
-#     scheduler.run_now()
-#
-#     return {
-#         "success": True,
-#         "message": "방치 차량 분석이 백그라운드에서 시작되었습니다",
-#         "note": "분석 완료까지 수 분이 소요될 수 있습니다. /api/abandoned-vehicles로 결과를 확인하세요."
-#     }
+@app.post("/api/admin/trigger-analysis")
+async def trigger_analysis():
+    """
+    수동으로 방치 차량 분석 실행 (관리자/테스트용)
+
+    자동 스케줄러를 기다리지 않고 즉시 250개 지역 분석을 실행합니다.
+    """
+    scheduler = get_scheduler()
+    scheduler.run_now()
+
+    return {
+        "success": True,
+        "message": "전국 250개 시/군/구 방치 차량 분석이 백그라운드에서 시작되었습니다",
+        "note": "분석 완료까지 수 분이 소요될 수 있습니다. /api/abandoned-vehicles로 결과를 확인하세요.",
+        "schedule": "매일 0시, 12시 자동 실행"
+    }
 
 
 @app.get("/api/reverse-geocode")
