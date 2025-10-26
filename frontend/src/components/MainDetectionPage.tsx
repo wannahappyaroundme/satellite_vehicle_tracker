@@ -324,7 +324,7 @@ const MainDetectionPage: React.FC = () => {
         }));
 
         // 거리순으로 정렬
-        cctvWithDistance.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        cctvWithDistance.sort((a: CCTVLocation, b: CCTVLocation) => (a.distance || 0) - (b.distance || 0));
 
         setNearbyCCTVs(cctvWithDistance);
       } else {

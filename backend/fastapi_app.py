@@ -29,6 +29,7 @@ from database import SessionLocal, get_db
 from models_sqlalchemy import AbandonedVehicle, AnalysisLog
 from analytics_service import get_analytics_service
 from vworld_search_service import get_vworld_search_service
+from local_gov_cctv_service import LocalGovCCTVService
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -102,6 +103,7 @@ security_logger = SecurityLogger()
 detector = AbandonedVehicleDetector(similarity_threshold=0.90)
 pdf_processor = PDFProcessor(dpi=300)
 ngii_service = NGIIAPIService()
+cctv_service = LocalGovCCTVService()  # 지자체 CCTV 통합 서비스
 
 # Input validator
 validator = InputValidator()
@@ -1503,26 +1505,102 @@ async def search_parking_lots(
 async def search_cctv(
     lat: float = Query(..., description="중심 위도"),
     lon: float = Query(..., description="중심 경도"),
-    radius: int = Query(1000, description="검색 반경 (미터)")
+    radius: int = Query(1000, description="검색 반경 (미터)"),
+    cctv_type: Optional[str] = Query(None, description="CCTV 타입 필터 (traffic/security/parking)")
 ):
     """
-    CCTV 검색 (데모 데이터)
+    지자체 CCTV 검색 (실제 공공데이터 기반)
 
     Args:
         lat: 중심 위도
         lon: 중심 경도
         radius: 검색 반경 (미터)
+        cctv_type: CCTV 타입 필터 (optional)
 
     Returns:
-        주변 CCTV 목록
+        주변 CCTV 목록 (거리순 정렬)
     """
     try:
-        search_service = get_vworld_search_service()
-        result = search_service.search_cctv(lat=lat, lon=lon, radius=radius)
+        # 지자체 CCTV 통합 서비스 사용
+        result = cctv_service.search_nearby_cctv(
+            lat=lat,
+            lon=lon,
+            radius=radius,
+            cctv_type=cctv_type
+        )
+
+        # 지역 정보 추가
+        region = cctv_service.get_region_info(lat, lon)
+        result['region'] = region
+
+        logger.info(f"CCTV 검색 성공: {result['total_count']}개 발견 ({region})")
         return result
     except Exception as e:
         logger.error(f"CCTV 검색 실패: {e}")
         raise HTTPException(status_code=500, detail=f"CCTV 검색 실패: {str(e)}")
+
+
+@app.get("/api/cctv/{cctv_id}")
+async def get_cctv_info(cctv_id: str):
+    """
+    특정 CCTV 상세 정보 조회
+
+    Args:
+        cctv_id: CCTV ID
+
+    Returns:
+        CCTV 상세 정보
+    """
+    try:
+        cctv_info = cctv_service.get_cctv_info(cctv_id)
+
+        if not cctv_info:
+            raise HTTPException(status_code=404, detail=f"CCTV {cctv_id}를 찾을 수 없습니다")
+
+        return {
+            'success': True,
+            'cctv': cctv_info
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CCTV 정보 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"CCTV 정보 조회 실패: {str(e)}")
+
+
+@app.get("/api/cctv/{cctv_id}/stream")
+async def get_cctv_stream(cctv_id: str):
+    """
+    CCTV 스트림 URL 조회
+
+    Args:
+        cctv_id: CCTV ID
+
+    Returns:
+        스트림 URL 및 CCTV 정보
+    """
+    try:
+        cctv_info = cctv_service.get_cctv_info(cctv_id)
+
+        if not cctv_info:
+            raise HTTPException(status_code=404, detail=f"CCTV {cctv_id}를 찾을 수 없습니다")
+
+        stream_url = cctv_service.get_cctv_stream_url(cctv_id)
+
+        return {
+            'success': True,
+            'cctv_id': cctv_id,
+            'stream_url': stream_url,
+            'cctv_name': cctv_info['name'],
+            'region': cctv_info['region'],
+            'is_public': cctv_info['is_public'],
+            'message': '실제 운영 시 지자체 통합관제 시스템 연동 필요'
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CCTV 스트림 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"CCTV 스트림 조회 실패: {str(e)}")
 
 
 @app.get("/api/vworld/map-tile-url")
