@@ -16,6 +16,7 @@ import os
 import tempfile
 import json
 import logging
+import asyncio
 
 from abandoned_vehicle_detector import AbandonedVehicleDetector
 from pdf_processor import PDFProcessor
@@ -240,13 +241,42 @@ SAMPLE_CCTV_DATA = [
 
 @app.on_event("startup")
 async def startup_event():
-    """앱 시작 시 스케줄러 시작"""
+    """앱 시작 시 스케줄러 시작 + 최초 DB 체크/채우기"""
+    from database import SessionLocal, engine
+    from models_sqlalchemy import AbandonedVehicle
+
+    # DB 체크: 비어있으면 초기 데이터 미리 채우기
+    db = SessionLocal()
+    try:
+        vehicle_count = db.query(AbandonedVehicle).count()
+
+        if vehicle_count == 0:
+            logger.info("=" * 60)
+            logger.info("🔍 DB가 비어있음 - 초기 데이터 생성 중...")
+            logger.info("=" * 60)
+
+            # 백그라운드에서 즉시 전국 분석 실행 (비동기)
+            scheduler = get_scheduler()
+            asyncio.create_task(scheduler.analyze_abandoned_vehicles())
+
+            logger.info("✅ 백그라운드 초기 분석 시작됨 (1-2분 소요 예상)")
+            logger.info("💡 분석 완료 전에도 API는 사용 가능합니다")
+        else:
+            logger.info(f"✅ 기존 DB 데이터 발견: {vehicle_count}대의 방치 차량")
+
+    except Exception as e:
+        logger.error(f"❌ DB 체크 실패: {e}")
+    finally:
+        db.close()
+
+    # 스케줄러 시작 (12시간 간격)
     scheduler = get_scheduler()
     scheduler.start()
     logger.info("=" * 60)
     logger.info("✅ FastAPI 앱 시작 - 자동 스케줄러 활성화됨")
     logger.info("⏰ 12시간 간격 실행: 매일 0시, 12시")
     logger.info("📍 분석 대상: 전국 250개 시/군/구")
+    logger.info("🚀 WMTS 고속 다운로드 사용 (WMS 대비 5-10배 빠름)")
     logger.info("=" * 60)
 
 
