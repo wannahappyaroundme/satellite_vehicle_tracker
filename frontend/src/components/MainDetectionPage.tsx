@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, RefreshCw, Loader, MapPin, BarChart3 } from 'lucide-react';
+import { Search, Loader, MapPin, BarChart3 } from 'lucide-react';
 import axios from 'axios';
 import StatisticsDashboard from './StatisticsDashboard';
 
