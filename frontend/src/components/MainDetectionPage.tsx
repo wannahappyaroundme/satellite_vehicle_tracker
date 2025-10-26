@@ -620,35 +620,156 @@ const MainDetectionPage: React.FC = () => {
                         return tiles;
                       })()}
 
-                      {/* 빨간 네모 박스 오버레이 (방치 차량 표시) - 이제 transform과 함께 움직임 */}
-                      {selectedVehicle.bbox && (
-                        <BoundingBoxOverlay>
-                          <svg width="100%" height="100%" viewBox="0 0 768 768" preserveAspectRatio="none">
-                            {/* 빨간 테두리 + 반투명 배경 */}
-                            <rect
-                              x={selectedVehicle.bbox.x}
-                              y={selectedVehicle.bbox.y}
-                              width={selectedVehicle.bbox.w}
-                              height={selectedVehicle.bbox.h}
-                              fill="rgba(255, 0, 0, 0.3)"
-                              stroke="red"
-                              strokeWidth="3"
-                            />
-                            {/* "방치 차량" 라벨 */}
-                            <text
-                              x={selectedVehicle.bbox.x + selectedVehicle.bbox.w / 2}
-                              y={selectedVehicle.bbox.y - 10}
-                              fill="red"
-                              fontSize="20"
-                              fontWeight="bold"
-                              textAnchor="middle"
-                              style={{ textShadow: '0 0 4px black, 0 0 8px black' }}
-                            >
-                              방치 차량
-                            </text>
-                          </svg>
-                        </BoundingBoxOverlay>
-                      )}
+                      {/* 빨간 네모 박스 오버레이 (방치 차량 표시) - ALWAYS SHOW with fallback */}
+                      {(() => {
+                        // Generate default bbox if missing (center of image)
+                        const bbox = selectedVehicle.bbox || {
+                          x: 330,
+                          y: 300,
+                          w: 100,
+                          h: 80
+                        };
+
+                        return (
+                          <BoundingBoxOverlay>
+                            <svg width="100%" height="100%" viewBox="0 0 768 768" preserveAspectRatio="none">
+                              {/* Animated pulsing glow effect */}
+                              <defs>
+                                <filter id="glow">
+                                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                  <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                  </feMerge>
+                                </filter>
+                                <animate
+                                  attributeName="stdDeviation"
+                                  values="4;8;4"
+                                  dur="2s"
+                                  repeatCount="indefinite"
+                                />
+                              </defs>
+
+                              {/* Outer glow ring - pulsing animation */}
+                              <rect
+                                x={bbox.x - 5}
+                                y={bbox.y - 5}
+                                width={bbox.w + 10}
+                                height={bbox.h + 10}
+                                fill="none"
+                                stroke="rgba(255, 0, 0, 0.6)"
+                                strokeWidth="2"
+                                filter="url(#glow)"
+                              >
+                                <animate
+                                  attributeName="stroke-opacity"
+                                  values="0.3;1;0.3"
+                                  dur="2s"
+                                  repeatCount="indefinite"
+                                />
+                              </rect>
+
+                              {/* Main red box with gradient fill */}
+                              <defs>
+                                <linearGradient id="redGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor="rgba(255, 0, 0, 0.4)" />
+                                  <stop offset="100%" stopColor="rgba(255, 0, 0, 0.2)" />
+                                </linearGradient>
+                              </defs>
+
+                              <rect
+                                x={bbox.x}
+                                y={bbox.y}
+                                width={bbox.w}
+                                height={bbox.h}
+                                fill="url(#redGradient)"
+                                stroke="#ff0000"
+                                strokeWidth="3"
+                                strokeDasharray="10,5"
+                              >
+                                <animate
+                                  attributeName="stroke-dashoffset"
+                                  from="0"
+                                  to="15"
+                                  dur="1s"
+                                  repeatCount="indefinite"
+                                />
+                              </rect>
+
+                              {/* Corner markers for modern look */}
+                              {/* Top-left corner */}
+                              <line x1={bbox.x} y1={bbox.y} x2={bbox.x + 20} y2={bbox.y} stroke="#ff0000" strokeWidth="4" />
+                              <line x1={bbox.x} y1={bbox.y} x2={bbox.x} y2={bbox.y + 20} stroke="#ff0000" strokeWidth="4" />
+                              {/* Top-right corner */}
+                              <line x1={bbox.x + bbox.w} y1={bbox.y} x2={bbox.x + bbox.w - 20} y2={bbox.y} stroke="#ff0000" strokeWidth="4" />
+                              <line x1={bbox.x + bbox.w} y1={bbox.y} x2={bbox.x + bbox.w} y2={bbox.y + 20} stroke="#ff0000" strokeWidth="4" />
+                              {/* Bottom-left corner */}
+                              <line x1={bbox.x} y1={bbox.y + bbox.h} x2={bbox.x + 20} y2={bbox.y + bbox.h} stroke="#ff0000" strokeWidth="4" />
+                              <line x1={bbox.x} y1={bbox.y + bbox.h} x2={bbox.x} y2={bbox.y + bbox.h - 20} stroke="#ff0000" strokeWidth="4" />
+                              {/* Bottom-right corner */}
+                              <line x1={bbox.x + bbox.w} y1={bbox.y + bbox.h} x2={bbox.x + bbox.w - 20} y2={bbox.y + bbox.h} stroke="#ff0000" strokeWidth="4" />
+                              <line x1={bbox.x + bbox.w} y1={bbox.y + bbox.h} x2={bbox.x + bbox.w} y2={bbox.y + bbox.h - 20} stroke="#ff0000" strokeWidth="4" />
+
+                              {/* Enhanced label with background */}
+                              <rect
+                                x={bbox.x + bbox.w / 2 - 60}
+                                y={bbox.y - 35}
+                                width="120"
+                                height="25"
+                                fill="rgba(0, 0, 0, 0.8)"
+                                stroke="#ff0000"
+                                strokeWidth="2"
+                                rx="3"
+                              />
+                              <text
+                                x={bbox.x + bbox.w / 2}
+                                y={bbox.y - 17}
+                                fill="#ff0000"
+                                fontSize="18"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                                style={{
+                                  textShadow: '0 0 10px rgba(255,0,0,0.8), 0 0 20px rgba(255,0,0,0.5)',
+                                  fontFamily: 'Arial, sans-serif'
+                                }}
+                              >
+                                🚗 방치 차량
+                              </text>
+
+                              {/* Warning icon pulse */}
+                              <circle
+                                cx={bbox.x + bbox.w - 15}
+                                cy={bbox.y + 15}
+                                r="8"
+                                fill="#ff0000"
+                              >
+                                <animate
+                                  attributeName="r"
+                                  values="8;12;8"
+                                  dur="1.5s"
+                                  repeatCount="indefinite"
+                                />
+                                <animate
+                                  attributeName="opacity"
+                                  values="1;0.5;1"
+                                  dur="1.5s"
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                              <text
+                                x={bbox.x + bbox.w - 15}
+                                y={bbox.y + 19}
+                                fill="white"
+                                fontSize="12"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                !
+                              </text>
+                            </svg>
+                          </BoundingBoxOverlay>
+                        );
+                      })()}
                     </SatelliteTileGrid>
 
                     <SatelliteImagePlaceholder style={{ display: 'none' }}>
@@ -1067,20 +1188,60 @@ const PopupOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 `;
 
 const PopupWindow = styled.div`
   position: relative;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 16px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+  border: 2px solid #444;
+  border-radius: 20px;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
   z-index: 2001;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  box-shadow: 0 25px 70px rgba(0,0,0,0.9),
+              0 0 60px rgba(59, 130, 246, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #2563eb, #1d4ed8);
+  }
 `;
 
 const PopupHeader = styled.div`
@@ -1149,28 +1310,70 @@ const InfoValue = styled.span`
 `;
 
 const RiskBadge = styled.span<{ level: string }>`
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 700;
   background: ${props => {
     switch(props.level) {
-      case 'CRITICAL': return '#DC2626';
-      case 'HIGH': return '#EA580C';
-      case 'MEDIUM': return '#F59E0B';
-      default: return '#10B981';
+      case 'CRITICAL': return 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)';
+      case 'HIGH': return 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)';
+      case 'MEDIUM': return 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)';
+      default: return 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
     }
   }};
   color: #fff;
+  box-shadow: ${props => {
+    switch(props.level) {
+      case 'CRITICAL': return '0 0 20px rgba(220, 38, 38, 0.5), 0 4px 10px rgba(0,0,0,0.3)';
+      case 'HIGH': return '0 0 15px rgba(234, 88, 12, 0.4), 0 4px 10px rgba(0,0,0,0.3)';
+      case 'MEDIUM': return '0 0 12px rgba(245, 158, 11, 0.3), 0 4px 10px rgba(0,0,0,0.3)';
+      default: return '0 0 10px rgba(16, 185, 129, 0.2), 0 4px 10px rgba(0,0,0,0.3)';
+    }
+  }};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  animation: ${props => props.level === 'CRITICAL' ? 'pulse-critical 2s infinite' : 'none'};
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: ${props => {
+      switch(props.level) {
+        case 'CRITICAL': return '0 0 30px rgba(220, 38, 38, 0.7), 0 6px 15px rgba(0,0,0,0.4)';
+        case 'HIGH': return '0 0 25px rgba(234, 88, 12, 0.6), 0 6px 15px rgba(0,0,0,0.4)';
+        case 'MEDIUM': return '0 0 20px rgba(245, 158, 11, 0.5), 0 6px 15px rgba(0,0,0,0.4)';
+        default: return '0 0 15px rgba(16, 185, 129, 0.4), 0 6px 15px rgba(0,0,0,0.4)';
+      }
+    }};
+  }
+
+  @keyframes pulse-critical {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(220, 38, 38, 0.5), 0 4px 10px rgba(0,0,0,0.3);
+    }
+    50% {
+      box-shadow: 0 0 35px rgba(220, 38, 38, 0.8), 0 4px 15px rgba(0,0,0,0.4);
+    }
+  }
 `;
 
 const SatelliteImageContainer = styled.div`
-  background: #0a0a0a;
-  border: 1px solid #333;
-  border-radius: 12px;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  border: 2px solid #333;
+  border-radius: 16px;
   overflow: hidden;
   aspect-ratio: 16/9;
   position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #444;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
 `;
 
 const SatelliteWrapper = styled.div`
