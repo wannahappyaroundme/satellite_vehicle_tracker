@@ -277,32 +277,23 @@ class AbandonedVehicleScheduler:
         return {'found': found_count, 'updated': updated_count}
 
     def start(self):
-        """스케줄러 시작 (매일 0시, 12시 실행)"""
+        """스케줄러 시작 (6시간 간격: 0시, 6시, 12시, 18시 실행)"""
         if self.is_running:
             logger.warning("⚠️  스케줄러가 이미 실행 중입니다")
             return
 
-        # 매일 0시에 실행
+        # 6시간마다 실행 (하루 4회: 0시, 6시, 12시, 18시)
         self.scheduler.add_job(
             self.analyze_abandoned_vehicles,
-            trigger=CronTrigger(hour=0, minute=0),
-            id='analysis_midnight',
-            name='방치차량 분석 (0시)',
-            replace_existing=True
-        )
-
-        # 매일 12시에 실행
-        self.scheduler.add_job(
-            self.analyze_abandoned_vehicles,
-            trigger=CronTrigger(hour=12, minute=0),
-            id='analysis_noon',
-            name='방치차량 분석 (12시)',
+            trigger=CronTrigger(hour='0,6,12,18', minute=0),
+            id='analysis_6hour',
+            name='방치차량 분석 (6시간 주기)',
             replace_existing=True
         )
 
         self.scheduler.start()
         self.is_running = True
-        logger.info("✅ 자동 분석 스케줄러 시작됨 (매일 0시, 12시 실행)")
+        logger.info("✅ 자동 분석 스케줄러 시작됨 (6시간 간격: 0시, 6시, 12시, 18시)")
 
     def stop(self):
         """스케줄러 중지"""

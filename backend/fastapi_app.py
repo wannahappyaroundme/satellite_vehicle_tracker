@@ -269,14 +269,15 @@ async def startup_event():
     finally:
         db.close()
 
-    # 스케줄러 시작 (12시간 간격)
+    # 스케줄러 시작 (6시간 간격)
     scheduler = get_scheduler()
     scheduler.start()
     logger.info("=" * 60)
     logger.info("✅ FastAPI 앱 시작 - 자동 스케줄러 활성화됨")
-    logger.info("⏰ 12시간 간격 실행: 매일 0시, 12시")
+    logger.info("⏰ 6시간 간격 실행: 매일 0시, 6시, 12시, 18시 (하루 4회)")
     logger.info("📍 분석 대상: 전국 250개 시/군/구")
     logger.info("🚀 WMTS 고속 다운로드 사용 (WMS 대비 5-10배 빠름)")
+    logger.info("💾 DB 미리 채우기로 응답속도 최적화 (10-50ms)")
     logger.info("=" * 60)
 
 
@@ -479,7 +480,7 @@ async def get_abandoned_vehicles(
     city: Optional[str] = Query(None, description="시/도 필터"),
     district: Optional[str] = Query(None, description="시/군/구 필터"),
     status: Optional[str] = Query(None, description="상태 필터 (DETECTED/INVESTIGATING/VERIFIED/RESOLVED)"),
-    limit: int = Query(100, ge=1, le=1000, description="최대 결과 수")
+    limit: int = Query(50, ge=1, le=500, description="최대 결과 수")  # 100 → 50으로 기본값 감소
 ):
     """
     저장된 방치 차량 조회 (SQLite DB)
@@ -856,14 +857,16 @@ async def analyze_location(
 @app.get("/api/admin/vehicles/all")
 async def admin_get_all_vehicles(
     status: Optional[str] = Query(None, description="상태 필터: DETECTED, INVESTIGATING, VERIFIED, RESOLVED"),
-    risk_level: Optional[str] = Query(None, description="위험도 필터: CRITICAL, HIGH, MEDIUM, LOW")
+    risk_level: Optional[str] = Query(None, description="위험도 필터: CRITICAL, HIGH, MEDIUM, LOW"),
+    limit: int = Query(100, ge=1, le=500, description="최대 결과 수 (기본 100)")
 ):
     """
-    전국 모든 방치 차량 조회 (관리자용)
+    전국 모든 방치 차량 조회 (관리자용) - 성능 최적화: 기본 100개 제한
 
     Query Parameters:
     - status: 상태 필터
     - risk_level: 위험도 필터
+    - limit: 최대 결과 수 (기본 100, 최대 500)
     """
     db = SessionLocal()
     try:
@@ -875,12 +878,25 @@ async def admin_get_all_vehicles(
         if risk_level:
             query = query.filter(AbandonedVehicle.risk_level == risk_level.upper())
 
+        # 최신 순으로 정렬 + LIMIT 적용 (성능 최적화)
+        query = query.order_by(AbandonedVehicle.last_detected.desc()).limit(limit)
+
         vehicles = query.all()
         vehicles_dict = [v.to_dict() for v in vehicles]
 
+        # 총 개수도 함께 반환 (페이지네이션용)
+        total_count = db.query(AbandonedVehicle)
+        if status:
+            total_count = total_count.filter(AbandonedVehicle.status == status.upper())
+        if risk_level:
+            total_count = total_count.filter(AbandonedVehicle.risk_level == risk_level.upper())
+        total_count = total_count.count()
+
         return {
             "success": True,
-            "total": len(vehicles_dict),
+            "count": len(vehicles_dict),
+            "total": total_count,
+            "limit": limit,
             "filters": {
                 "status": status,
                 "risk_level": risk_level
