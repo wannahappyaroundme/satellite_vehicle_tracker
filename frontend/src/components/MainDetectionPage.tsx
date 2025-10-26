@@ -249,7 +249,7 @@ const MainDetectionPage: React.FC = () => {
       setAddressLoading(true);
       try {
         // 백엔드 프록시를 통한 역지오코딩 (CORS 해결)
-        const response = await axios.get(`${API_BASE_URL}/api/reverse-geocode`, {
+        const response = await axios.get(`${API_BASE_URL}/reverse-geocode`, {
           params: {
             lat: center[0],
             lon: center[1]

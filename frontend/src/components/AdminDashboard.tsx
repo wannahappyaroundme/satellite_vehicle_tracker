@@ -13,7 +13,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import styles from './AdminDashboard.module.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = process.env.REACT_APP_FASTAPI_URL || 'http://localhost:8000/api';
 
 interface Statistics {
   total_vehicles: number;
