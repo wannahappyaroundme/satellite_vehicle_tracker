@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, Loader, MapPin, BarChart3 } from 'lucide-react';
+import { Search, Loader, MapPin, BarChart3, Settings } from 'lucide-react';
 import axios from 'axios';
 import StatisticsDashboard from './StatisticsDashboard';
+import AdminDashboard from './AdminDashboard';
 
 const API_BASE_URL = process.env.REACT_APP_FASTAPI_URL || 'http://localhost:8000/api';
 const USE_DEMO_MODE = true; // 🎭 데모 모드 활성화 (API 키 불필요)
@@ -89,6 +90,7 @@ const MainDetectionPage: React.FC = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<AbandonedVehicle | null>(null);
   const [showSatellitePopup, setShowSatellitePopup] = useState(false);
   const [showStatsDashboard, setShowStatsDashboard] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [currentAddress, setCurrentAddress] = useState(''); // 실시간 주소
@@ -322,6 +324,11 @@ const MainDetectionPage: React.FC = () => {
                 통계 대시보드
               </StatsButton>
             )}
+
+            <AdminButton onClick={() => setShowAdminDashboard(true)}>
+              <Settings size={20} />
+              관리자
+            </AdminButton>
           </ButtonGroup>
         </SearchControls>
 
@@ -531,6 +538,25 @@ const MainDetectionPage: React.FC = () => {
             </DashboardHeader>
             <DashboardContent>
               <StatisticsDashboard vehicles={vehicles} />
+            </DashboardContent>
+          </DashboardWindow>
+        </DashboardModal>
+      )}
+
+      {/* 관리자 대시보드 모달 */}
+      {showAdminDashboard && (
+        <DashboardModal>
+          <DashboardOverlay onClick={() => setShowAdminDashboard(false)} />
+          <DashboardWindow>
+            <DashboardHeader>
+              <DashboardTitle>
+                <Settings size={28} />
+                관리자 대시보드
+              </DashboardTitle>
+              <DashboardCloseButton onClick={() => setShowAdminDashboard(false)}>✕</DashboardCloseButton>
+            </DashboardHeader>
+            <DashboardContent>
+              <AdminDashboard />
             </DashboardContent>
           </DashboardWindow>
         </DashboardModal>
@@ -1026,6 +1052,15 @@ const StatsButton = styled(SearchButton)`
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+`;
+
+const AdminButton = styled(SearchButton)`
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+
+  &:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
   }
 `;
 

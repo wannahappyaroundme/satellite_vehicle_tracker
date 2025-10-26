@@ -1148,6 +1148,167 @@ async def demo_analyze_location(
     return result
 
 
+# ===== ADMIN DASHBOARD ENDPOINTS =====
+
+@app.get("/api/admin/statistics")
+async def get_admin_statistics(db: Session = Depends(get_db)):
+    """
+    관리자 대시보드 통계 정보
+
+    Returns:
+        - 총 방치 차량 수
+        - 위험도별 분포
+        - 지역별 분포
+        - 최근 분석 이력
+    """
+    try:
+        # 총 방치 차량 수
+        total_vehicles = db.query(AbandonedVehicle).count()
+
+        # 위험도별 분포
+        risk_distribution = {
+            "CRITICAL": db.query(AbandonedVehicle).filter(AbandonedVehicle.risk_level == "CRITICAL").count(),
+            "HIGH": db.query(AbandonedVehicle).filter(AbandonedVehicle.risk_level == "HIGH").count(),
+            "MEDIUM": db.query(AbandonedVehicle).filter(AbandonedVehicle.risk_level == "MEDIUM").count(),
+            "LOW": db.query(AbandonedVehicle).filter(AbandonedVehicle.risk_level == "LOW").count()
+        }
+
+        # 지역별 상위 10개
+        from sqlalchemy import func
+        city_distribution = db.query(
+            AbandonedVehicle.city,
+            func.count(AbandonedVehicle.id).label('count')
+        ).group_by(AbandonedVehicle.city).order_by(func.count(AbandonedVehicle.id).desc()).limit(10).all()
+
+        # 최근 분석 이력
+        recent_analyses = db.query(AnalysisLog).order_by(AnalysisLog.started_at.desc()).limit(10).all()
+
+        return {
+            "success": True,
+            "statistics": {
+                "total_vehicles": total_vehicles,
+                "risk_distribution": risk_distribution,
+                "city_distribution": [{"city": city, "count": count} for city, count in city_distribution],
+                "recent_analyses": [
+                    {
+                        "id": log.id,
+                        "analysis_type": log.analysis_type,
+                        "status": log.status,
+                        "started_at": log.started_at.isoformat() if log.started_at else None,
+                        "completed_at": log.completed_at.isoformat() if log.completed_at else None,
+                        "regions_analyzed": log.regions_analyzed,
+                        "vehicles_found": log.vehicles_found,
+                        "vehicles_updated": log.vehicles_updated
+                    }
+                    for log in recent_analyses
+                ]
+            }
+        }
+    except Exception as e:
+        logger.error(f"통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"통계 조회 실패: {str(e)}")
+
+
+@app.get("/api/admin/scheduler-status")
+async def get_scheduler_status():
+    """
+    스케줄러 상태 조회
+
+    Returns:
+        - 스케줄러 실행 여부
+        - 다음 실행 예정 시간
+        - 현재 실행 중인 작업
+    """
+    try:
+        scheduler = get_scheduler()
+
+        return {
+            "success": True,
+            "scheduler": {
+                "is_running": scheduler.is_running,
+                "next_run_time": "매일 0시, 12시",
+                "schedule": "0 0,12 * * *"
+            }
+        }
+    except Exception as e:
+        logger.error(f"스케줄러 상태 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"스케줄러 상태 조회 실패: {str(e)}")
+
+
+@app.post("/api/admin/update-vehicle-status")
+async def update_vehicle_status(
+    vehicle_id: int,
+    status: str = Query(..., description="처리 상태: pending, verified, resolved, false_positive"),
+    db: Session = Depends(get_db)
+):
+    """
+    방치 차량 상태 업데이트 (관리자용)
+
+    Args:
+        vehicle_id: 차량 ID
+        status: 처리 상태
+
+    Returns:
+        업데이트된 차량 정보
+    """
+    try:
+        vehicle = db.query(AbandonedVehicle).filter(AbandonedVehicle.id == vehicle_id).first()
+
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="차량을 찾을 수 없습니다")
+
+        # 상태 업데이트
+        vehicle.status = status
+        vehicle.updated_at = datetime.now()
+
+        db.commit()
+        db.refresh(vehicle)
+
+        return {
+            "success": True,
+            "message": f"차량 상태가 '{status}'로 업데이트되었습니다",
+            "vehicle": vehicle.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"차량 상태 업데이트 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"차량 상태 업데이트 실패: {str(e)}")
+
+
+@app.delete("/api/admin/delete-vehicle/{vehicle_id}")
+async def delete_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
+    """
+    방치 차량 삭제 (관리자용)
+
+    Args:
+        vehicle_id: 차량 ID
+
+    Returns:
+        삭제 결과
+    """
+    try:
+        vehicle = db.query(AbandonedVehicle).filter(AbandonedVehicle.id == vehicle_id).first()
+
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="차량을 찾을 수 없습니다")
+
+        db.delete(vehicle)
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"차량 ID {vehicle_id}가 삭제되었습니다"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"차량 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"차량 삭제 실패: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
