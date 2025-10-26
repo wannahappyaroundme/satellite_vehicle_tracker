@@ -283,7 +283,7 @@ class VWorldWMTSService:
                 latitude=lat,
                 longitude=lon,
                 width_tiles=tile_width,
-                height_tiles=height_tiles,
+                height_tiles=tile_height,
                 zoom=zoom
             )
 

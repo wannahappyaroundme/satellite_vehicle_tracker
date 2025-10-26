@@ -757,7 +757,9 @@ async def analyze_location(
                 if detection.get('confidence', 0) >= 0.9:
                     # Generate unique vehicle ID
                     import hashlib
-                    vehicle_id = f"vehicle_{hashlib.md5(f'{latitude}{longitude}{detection.get('bbox', {})}'.encode()).hexdigest()[:16]}"
+                    bbox = detection.get('bbox', [])
+                    id_string = f'{latitude}{longitude}{bbox}'
+                    vehicle_id = f"vehicle_{hashlib.md5(id_string.encode()).hexdigest()[:16]}"
 
                     # Check if vehicle already exists
                     existing = db.query(AbandonedVehicle).filter(
