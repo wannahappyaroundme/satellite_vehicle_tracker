@@ -379,12 +379,12 @@ const MainDetectionPage: React.FC = () => {
         </MapContainer>
 
         {/* 통계 표시 */}
-        {analyzed && (
+        {showVehicles && vehicles.length > 0 && (
           <StatsOverlay>
             <StatItem>
-              <StatLabel>분석 완료</StatLabel>
-              <StatValue isClean={vehicles.length === 0}>
-                {vehicles.length === 0 ? '정상' : `${vehicles.length}대`}
+              <StatLabel>방치 차량</StatLabel>
+              <StatValue isClean={false}>
+                {vehicles.length}대
               </StatValue>
             </StatItem>
           </StatsOverlay>
