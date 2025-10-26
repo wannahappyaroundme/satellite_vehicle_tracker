@@ -85,7 +85,7 @@ const AbandonedVehiclePanel: React.FC = () => {
 
     setLoading(true);
     try {
-      // 1. 주소 → 좌표 변환
+      // 1. 주소 → 좌표 변환 (주소에서 시/도, 구/군 추출)
       const addressResponse = await axios.get(`${API_BASE_URL}/api/search-address`, {
         params: { query: searchAddress }
       });
@@ -97,21 +97,42 @@ const AbandonedVehiclePanel: React.FC = () => {
 
       const { latitude, longitude, address: fullAddress } = addressResponse.data;
 
-      // 2. 해당 위치 방치차량 분석 (데모 모드)
-      const analysisResponse = await axios.post(`${API_BASE_URL}/api/analyze-location`, null, {
+      // 2. 주소에서 시/도와 구/군 추출
+      const addressParts = (fullAddress || searchAddress).split(' ');
+      const city = addressParts[0]; // 예: "서울특별시"
+      const district = addressParts[1]; // 예: "강남구"
+
+      // 3. DB에서 해당 지역의 방치 차량 조회 (실시간 분석 대신 저장된 데이터 사용!)
+      const dbResponse = await axios.get(`${API_BASE_URL}/api/abandoned-vehicles`, {
         params: {
-          latitude,
-          longitude,
-          address: fullAddress || searchAddress,
-          use_real_api: false  // API 키가 유효하면 true로 변경
+          city,
+          district,
+          min_similarity: 0.85,
+          limit: 50
         }
       });
 
-      setResults(analysisResponse.data);
+      // 4. 결과 변환 (기존 형식과 호환되도록)
+      const abandonedVehicles = dbResponse.data.abandoned_vehicles || [];
+
+      setResults({
+        success: true,
+        abandoned_vehicles: abandonedVehicles,
+        total_found: abandonedVehicles.length,
+        analysis_info: {
+          location: fullAddress || searchAddress,
+          latitude,
+          longitude,
+          source: 'PRE_POPULATED_DB',  // DB에서 조회했음을 표시
+          message: `💾 저장된 DB에서 ${abandonedVehicles.length}대 조회 (6시간마다 자동 업데이트)`
+        },
+        cctv_locations: []  // CCTV는 별도 API로 조회 가능
+      });
+
       setShowLocationSearch(false);
     } catch (error: any) {
-      console.error('Location analysis failed:', error);
-      alert(`위치 분석 실패: ${error.response?.data?.detail || error.message}`);
+      console.error('Location query failed:', error);
+      alert(`조회 실패: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }
