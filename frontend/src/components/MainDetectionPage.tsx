@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, Loader, MapPin, BarChart3, Settings } from 'lucide-react';
+import { Search, Loader, MapPin, BarChart3, Settings, Camera } from 'lucide-react';
 import axios from 'axios';
 import StatisticsDashboard from './StatisticsDashboard';
 import AdminDashboard from './AdminDashboard';
@@ -36,6 +36,16 @@ interface AbandonedVehicle {
     w: number;
     h: number;
   };
+}
+
+interface CCTVLocation {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  distance?: number; // meters
+  type?: string;
+  is_public: boolean;
 }
 
 // 지도 이벤트 컴포넌트 (지도 이동/확대 감지)
@@ -98,6 +108,11 @@ const MainDetectionPage: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [currentAddress, setCurrentAddress] = useState(''); // 실시간 주소
   const [addressLoading, setAddressLoading] = useState(false);
+
+  // CCTV 검증 관련 상태
+  const [nearbyCCTVs, setNearbyCCTVs] = useState<CCTVLocation[]>([]);
+  const [showCCTVVerification, setShowCCTVVerification] = useState(false);
+  const [loadingCCTV, setLoadingCCTV] = useState(false);
 
   // 시/군/구 목록 가져오기
   useEffect(() => {
@@ -245,6 +260,10 @@ const MainDetectionPage: React.FC = () => {
     // Reset zoom and pan
     setImageScale(1);
     setImagePosition({ x: 0, y: 0 });
+    // 주변 CCTV 검색
+    if (vehicle.latitude && vehicle.longitude) {
+      fetchNearbyCCTVs(vehicle.latitude, vehicle.longitude);
+    }
   };
 
   // 위성 이미지 줌/팬 핸들러
@@ -275,6 +294,48 @@ const MainDetectionPage: React.FC = () => {
   const resetZoom = () => {
     setImageScale(1);
     setImagePosition({ x: 0, y: 0 });
+  };
+
+  // 거리 계산 함수 (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c * 1000; // return in meters
+  };
+
+  // 주변 CCTV 검색
+  const fetchNearbyCCTVs = async (lat: number, lon: number) => {
+    setLoadingCCTV(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/vworld/cctv`, {
+        params: { lat, lon, radius: 1000 }
+      });
+
+      if (response.data.success && response.data.cctv) {
+        // 거리 계산 및 정렬
+        const cctvWithDistance = response.data.cctv.map((cctv: CCTVLocation) => ({
+          ...cctv,
+          distance: calculateDistance(lat, lon, cctv.latitude, cctv.longitude)
+        }));
+
+        // 거리순으로 정렬
+        cctvWithDistance.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+        setNearbyCCTVs(cctvWithDistance);
+      } else {
+        setNearbyCCTVs([]);
+      }
+    } catch (error) {
+      console.error('CCTV 검색 실패:', error);
+      setNearbyCCTVs([]);
+    } finally {
+      setLoadingCCTV(false);
+    }
   };
 
   // 지도 이동 시 현재 위치 주소 가져오기 (역지오코딩)
@@ -558,37 +619,37 @@ const MainDetectionPage: React.FC = () => {
                         }
                         return tiles;
                       })()}
-                    </SatelliteTileGrid>
 
-                    {/* 빨간 네모 박스 오버레이 (방치 차량 표시) */}
-                    {selectedVehicle.bbox && (
-                      <BoundingBoxOverlay>
-                        <svg width="100%" height="100%" viewBox="0 0 768 768" preserveAspectRatio="none">
-                          {/* 빨간 테두리 + 반투명 배경 */}
-                          <rect
-                            x={selectedVehicle.bbox.x}
-                            y={selectedVehicle.bbox.y}
-                            width={selectedVehicle.bbox.w}
-                            height={selectedVehicle.bbox.h}
-                            fill="rgba(255, 0, 0, 0.3)"
-                            stroke="red"
-                            strokeWidth="3"
-                          />
-                          {/* "방치 차량" 라벨 */}
-                          <text
-                            x={selectedVehicle.bbox.x + selectedVehicle.bbox.w / 2}
-                            y={selectedVehicle.bbox.y - 10}
-                            fill="red"
-                            fontSize="20"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                            style={{ textShadow: '0 0 4px black, 0 0 8px black' }}
-                          >
-                            방치 차량
-                          </text>
-                        </svg>
-                      </BoundingBoxOverlay>
-                    )}
+                      {/* 빨간 네모 박스 오버레이 (방치 차량 표시) - 이제 transform과 함께 움직임 */}
+                      {selectedVehicle.bbox && (
+                        <BoundingBoxOverlay>
+                          <svg width="100%" height="100%" viewBox="0 0 768 768" preserveAspectRatio="none">
+                            {/* 빨간 테두리 + 반투명 배경 */}
+                            <rect
+                              x={selectedVehicle.bbox.x}
+                              y={selectedVehicle.bbox.y}
+                              width={selectedVehicle.bbox.w}
+                              height={selectedVehicle.bbox.h}
+                              fill="rgba(255, 0, 0, 0.3)"
+                              stroke="red"
+                              strokeWidth="3"
+                            />
+                            {/* "방치 차량" 라벨 */}
+                            <text
+                              x={selectedVehicle.bbox.x + selectedVehicle.bbox.w / 2}
+                              y={selectedVehicle.bbox.y - 10}
+                              fill="red"
+                              fontSize="20"
+                              fontWeight="bold"
+                              textAnchor="middle"
+                              style={{ textShadow: '0 0 4px black, 0 0 8px black' }}
+                            >
+                              방치 차량
+                            </text>
+                          </svg>
+                        </BoundingBoxOverlay>
+                      )}
+                    </SatelliteTileGrid>
 
                     <SatelliteImagePlaceholder style={{ display: 'none' }}>
                       <PlaceholderText>
@@ -608,6 +669,36 @@ const MainDetectionPage: React.FC = () => {
                   </SatelliteImagePlaceholder>
                 )}
               </SatelliteImageContainer>
+
+              {/* CCTV 검증 섹션 */}
+              <CCTVVerificationSection>
+                <CCTVSectionTitle>
+                  <Camera size={20} />
+                  CCTV 검증
+                  {loadingCCTV && <LoadingDot>검색 중...</LoadingDot>}
+                  {!loadingCCTV && nearbyCCTVs.length > 0 && (
+                    <CCTVCount>{nearbyCCTVs.length}개 발견</CCTVCount>
+                  )}
+                </CCTVSectionTitle>
+
+                {!loadingCCTV && nearbyCCTVs.length === 0 && (
+                  <NoCCTVMessage>
+                    주변에 검증 가능한 CCTV가 없습니다
+                  </NoCCTVMessage>
+                )}
+
+                {!loadingCCTV && nearbyCCTVs.length > 0 && (
+                  <>
+                    <CCTVDescription>
+                      거리순으로 정렬된 주변 CCTV 목록입니다. 클릭하여 상세 정보를 확인하세요.
+                    </CCTVDescription>
+                    <CCTVButton onClick={() => setShowCCTVVerification(true)}>
+                      <Camera size={18} />
+                      CCTV로 검증하기 ({nearbyCCTVs.length}개)
+                    </CCTVButton>
+                  </>
+                )}
+              </CCTVVerificationSection>
             </PopupBody>
           </PopupWindow>
         </SatellitePopup>
@@ -649,6 +740,76 @@ const MainDetectionPage: React.FC = () => {
             </DashboardContent>
           </DashboardWindow>
         </DashboardModal>
+      )}
+
+      {/* CCTV 검증 팝업 */}
+      {showCCTVVerification && selectedVehicle && (
+        <SatellitePopup>
+          <PopupOverlay onClick={() => setShowCCTVVerification(false)} />
+          <PopupWindow style={{maxWidth: '700px'}}>
+            <PopupHeader>
+              <PopupWindowTitle>
+                <Camera size={24} style={{marginRight: '8px'}} />
+                CCTV 실시간 검증
+              </PopupWindowTitle>
+              <CloseButton onClick={() => setShowCCTVVerification(false)}>×</CloseButton>
+            </PopupHeader>
+
+            <PopupBody>
+              {/* 방치 차량 정보 */}
+              <CCTVPopupSection>
+                <CCTVPopupSectionTitle>🚗 방치 차량 정보</CCTVPopupSectionTitle>
+                <CCTVPopupText>
+                  <strong>ID:</strong> {selectedVehicle.id}<br/>
+                  <strong>유사도:</strong> {selectedVehicle.similarity_percentage}%<br/>
+                  <strong>위험도:</strong> <RiskBadge level={selectedVehicle.risk_level}>
+                    {selectedVehicle.risk_level}
+                  </RiskBadge><br/>
+                  <strong>경과 시간:</strong> {selectedVehicle.years_difference}년<br/>
+                  <strong>위치:</strong> {selectedVehicle.latitude.toFixed(6)}, {selectedVehicle.longitude.toFixed(6)}
+                </CCTVPopupText>
+              </CCTVPopupSection>
+
+              {/* CCTV 목록 */}
+              <CCTVPopupSection>
+                <CCTVPopupSectionTitle>📹 검증 가능한 CCTV (거리순)</CCTVPopupSectionTitle>
+                {nearbyCCTVs.length === 0 ? (
+                  <NoCCTVMessage>주변에 CCTV가 없습니다</NoCCTVMessage>
+                ) : (
+                  <CCTVList>
+                    {nearbyCCTVs.slice(0, 5).map((cctv, index) => (
+                      <CCTVListItem key={cctv.id}>
+                        <CCTVItemNumber>#{index + 1}</CCTVItemNumber>
+                        <CCTVItemInfo>
+                          <CCTVItemName>{cctv.name}</CCTVItemName>
+                          <CCTVItemDetails>
+                            거리: {cctv.distance ? `${cctv.distance.toFixed(0)}m` : 'N/A'}
+                            {cctv.type && ` • ${cctv.type}`}
+                            {cctv.is_public && ' • 공개'}
+                          </CCTVItemDetails>
+                        </CCTVItemInfo>
+                      </CCTVListItem>
+                    ))}
+                  </CCTVList>
+                )}
+              </CCTVPopupSection>
+
+              {/* 실시간 영상 placeholder */}
+              <CCTVPopupSection>
+                <CCTVPopupSectionTitle>📺 실시간 영상</CCTVPopupSectionTitle>
+                <CCTVStreamPlaceholder>
+                  <Camera size={64} color="#6b7280" />
+                  <CCTVPlaceholderText>
+                    실제 운영 시 여기에 실시간 CCTV 영상이 표시됩니다
+                  </CCTVPlaceholderText>
+                  <CCTVPlaceholderSubtext>
+                    지자체 CCTV 통합관제 시스템 연동 필요
+                  </CCTVPlaceholderSubtext>
+                </CCTVStreamPlaceholder>
+              </CCTVPopupSection>
+            </PopupBody>
+          </PopupWindow>
+        </SatellitePopup>
       )}
     </Container>
   );
@@ -1228,6 +1389,183 @@ const DashboardCloseButton = styled.button`
     color: #fff;
     background: rgba(255, 255, 255, 0.1);
   }
+`;
+
+// CCTV 검증 관련 Styled Components
+const CCTVVerificationSection = styled.div`
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #333;
+`;
+
+const CCTVSectionTitle = styled.h3`
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const CCTVCount = styled.span`
+  font-size: 14px;
+  color: #10b981;
+  font-weight: 500;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-left: auto;
+`;
+
+const LoadingDot = styled.span`
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
+  margin-left: auto;
+`;
+
+const NoCCTVMessage = styled.p`
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 12px 0;
+`;
+
+const CCTVDescription = styled.p`
+  font-size: 14px;
+  color: #d1d5db;
+  margin: 0 0 16px 0;
+  line-height: 1.6;
+`;
+
+const CCTVButton = styled.button`
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+// CCTV 팝업 관련 Styled Components
+const CCTVPopupSection = styled.div`
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #333;
+
+  &:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+`;
+
+const CCTVPopupSectionTitle = styled.h4`
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 12px 0;
+`;
+
+const CCTVPopupText = styled.p`
+  font-size: 14px;
+  line-height: 1.8;
+  color: #d1d5db;
+  margin: 0;
+
+  strong {
+    color: #fff;
+    font-weight: 600;
+  }
+`;
+
+const CCTVList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const CCTVListItem = styled.div`
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #3b82f6;
+    background: #222;
+  }
+`;
+
+const CCTVItemNumber = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: #3b82f6;
+  min-width: 36px;
+  text-align: center;
+`;
+
+const CCTVItemInfo = styled.div`
+  flex: 1;
+`;
+
+const CCTVItemName = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+`;
+
+const CCTVItemDetails = styled.div`
+  font-size: 13px;
+  color: #9ca3af;
+`;
+
+const CCTVStreamPlaceholder = styled.div`
+  background: #0a0a0a;
+  border: 2px dashed #333;
+  border-radius: 12px;
+  padding: 60px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+`;
+
+const CCTVPlaceholderText = styled.p`
+  font-size: 16px;
+  color: #9ca3af;
+  margin: 16px 0 0 0;
+`;
+
+const CCTVPlaceholderSubtext = styled.p`
+  font-size: 13px;
+  color: #6b7280;
+  margin: 8px 0 0 0;
 `;
 
 export default MainDetectionPage;
