@@ -1,0 +1,299 @@
+.analytics-dashboard {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.3s;
+}
+
+.tab:hover {
+  color: #2563EB;
+}
+
+.tab.active {
+  color: #2563EB;
+  border-bottom-color: #2563EB;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #2563EB;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+h3 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.description {
+  color: #6b7280;
+  margin-bottom: 30px;
+}
+
+/* 클러스터링 스타일 */
+.clusters-list {
+  display: grid;
+  gap: 20px;
+}
+
+.cluster-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cluster-header {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.cluster-rank {
+  font-size: 24px;
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.cluster-count {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2563EB;
+}
+
+.risk-score {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.cluster-location {
+  margin-bottom: 15px;
+  color: #4b5563;
+}
+
+.risk-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.risk-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.risk-bar.critical {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.risk-bar.high {
+  background: #FED7AA;
+  color: #9A3412;
+}
+
+.risk-bar.medium {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.avg-similarity {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* 히트맵 스타일 */
+.heatmap-grid {
+  display: grid;
+  gap: 15px;
+}
+
+.heatmap-item {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.heatmap-header {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.rank {
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.vehicle-count {
+  font-weight: bold;
+  color: #2563EB;
+}
+
+.location {
+  margin-bottom: 10px;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.risk-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.critical {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.badge.high {
+  background: #FED7AA;
+  color: #9A3412;
+}
+
+.badge.medium {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+/* 시/도별 통계 스타일 */
+.city-stats-list {
+  display: grid;
+  gap: 15px;
+}
+
+.city-stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.city-header {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.city-rank {
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.city-name {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.city-count {
+  margin-left: auto;
+  font-size: 20px;
+  font-weight: bold;
+  color: #2563EB;
+}
+
+.city-risks {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.risk-item {
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.risk-item.critical {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.risk-item.high {
+  background: #FED7AA;
+  color: #9A3412;
+}
+
+.risk-item.medium {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.risk-item.low {
+  background: #E0E7FF;
+  color: #3730A3;
+}
+
+.risk-item span:first-child {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.city-avg {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9ca3af;
+  font-size: 18px;
+}
