@@ -3,11 +3,12 @@ FastAPI Backend for Abandoned Vehicle Detection System
 Analyzes aerial photos from 국토정보플랫폼 to detect long-term abandoned vehicles
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from sqlalchemy.orm import Session
 import cv2
 import numpy as np
 from datetime import datetime
@@ -24,7 +25,7 @@ from aerial_image_cache import get_cache
 from logging_config import setup_logging, PerformanceLogger, SecurityLogger, log_performance
 from security import rate_limiter, InputValidator, DataProtection, SQLSafetyChecker
 from auto_scheduler import get_scheduler
-from database import SessionLocal
+from database import SessionLocal, get_db
 from models_sqlalchemy import AbandonedVehicle, AnalysisLog
 from analytics_service import get_analytics_service
 from vworld_search_service import get_vworld_search_service
