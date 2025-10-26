@@ -29,7 +29,7 @@ from database import SessionLocal, get_db
 from models_sqlalchemy import AbandonedVehicle, AnalysisLog
 from analytics_service import get_analytics_service
 from vworld_search_service import get_vworld_search_service
-from local_gov_cctv_service import LocalGovCCTVService
+from public_cctv_integration import get_public_cctv_service
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -103,7 +103,7 @@ security_logger = SecurityLogger()
 detector = AbandonedVehicleDetector(similarity_threshold=0.90)
 pdf_processor = PDFProcessor(dpi=300)
 ngii_service = NGIIAPIService()
-cctv_service = LocalGovCCTVService()  # 지자체 CCTV 통합 서비스
+cctv_service = get_public_cctv_service()  # 공공데이터 기반 CCTV 통합 서비스
 
 # Input validator
 validator = InputValidator()

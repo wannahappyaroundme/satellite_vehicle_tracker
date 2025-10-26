@@ -681,6 +681,16 @@ const MainDetectionPage: React.FC = () => {
                   )}
                 </CCTVSectionTitle>
 
+                {loadingCCTV && (
+                  <CCTVLoadingContainer>
+                    <Loader size={24} className="spin" />
+                    <CCTVLoadingText>
+                      주변 CCTV를 검색하고 있습니다...
+                      <CCTVLoadingSubtext>잠시만 기다려주세요</CCTVLoadingSubtext>
+                    </CCTVLoadingText>
+                  </CCTVLoadingContainer>
+                )}
+
                 {!loadingCCTV && nearbyCCTVs.length === 0 && (
                   <NoCCTVMessage>
                     주변에 검증 가능한 CCTV가 없습니다
@@ -1566,6 +1576,46 @@ const CCTVPlaceholderSubtext = styled.p`
   font-size: 13px;
   color: #6b7280;
   margin: 8px 0 0 0;
+`;
+
+// CCTV 로딩 UI
+const CCTVLoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  margin: 16px 0;
+
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+const CCTVLoadingText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+  color: #fff;
+  font-weight: 500;
+`;
+
+const CCTVLoadingSubtext = styled.div`
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 400;
 `;
 
 export default MainDetectionPage;
