@@ -1201,8 +1201,8 @@ async def get_admin_statistics(db: Session = Depends(get_db)):
                         "status": log.status,
                         "started_at": log.started_at.isoformat() if log.started_at else None,
                         "completed_at": log.completed_at.isoformat() if log.completed_at else None,
-                        "regions_analyzed": log.regions_analyzed,
-                        "vehicles_found": log.vehicles_found,
+                        "regions_analyzed": log.region_count,
+                        "vehicles_found": log.vehicles_detected,
                         "vehicles_updated": log.vehicles_updated
                     }
                     for log in recent_analyses

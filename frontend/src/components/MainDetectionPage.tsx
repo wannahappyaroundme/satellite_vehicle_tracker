@@ -87,6 +87,11 @@ const MainDetectionPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<AbandonedVehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<AbandonedVehicle | null>(null);
   const [showSatellitePopup, setShowSatellitePopup] = useState(false);
+  const [imageScale, setImageScale] = useState(1);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
   const [showStatsDashboard, setShowStatsDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
@@ -237,6 +242,9 @@ const MainDetectionPage: React.FC = () => {
   const handleVehicleClick = (vehicle: AbandonedVehicle) => {
     setSelectedVehicle(vehicle);
     setShowSatellitePopup(true);
+    // Reset zoom and pan
+    setImageScale(1);
+    setImagePosition({ x: 0, y: 0 });
   };
 
   // 지도 이동 시 현재 위치 주소 가져오기 (역지오코딩)

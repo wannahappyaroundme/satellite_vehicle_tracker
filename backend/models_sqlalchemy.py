@@ -125,7 +125,8 @@ class AbandonedVehicle(Base):
             'verification_notes': self.verification_notes,
 
             # Metadata
-            'bbox_data': self.bbox_data,
+            'bbox': self.bbox_data,  # Frontend expects 'bbox'
+            'bbox_data': self.bbox_data,  # Keep for backward compatibility
             'metadata': self.extra_metadata,  # Return as 'metadata' for API compatibility
 
             # Timestamps
