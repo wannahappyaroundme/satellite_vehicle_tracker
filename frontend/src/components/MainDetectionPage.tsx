@@ -639,36 +639,6 @@ const Select = styled.select`
   }
 `;
 
-const Input = styled.input`
-  padding: 12px 16px;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  min-width: 120px;
-  transition: all 0.2s;
-
-  &::placeholder {
-    color: #666;
-  }
-
-  &:hover:not(:disabled) {
-    border-color: #3B82F6;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #3B82F6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
 const SearchButton = styled.button`
   padding: 12px 24px;
   background: #3B82F6;
