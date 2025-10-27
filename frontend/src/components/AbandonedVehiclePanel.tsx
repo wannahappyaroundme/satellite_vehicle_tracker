@@ -37,22 +37,31 @@ interface AnalysisResult {
   success: boolean;
   status_message?: string;
   status_message_en?: string;
-  metadata: {
+  metadata?: {
     image1: any;
     image2: any;
     years_difference: number;
   };
-  analysis: {
+  analysis?: {
     total_parking_spaces_detected: number;
     spaces_analyzed: number;
     abandoned_vehicles_found: number;
     detection_threshold: number;
     is_clean?: boolean;
   };
-  results: AbandonedVehicle[];
+  results?: AbandonedVehicle[];
   abandoned_vehicles: AbandonedVehicle[];
   visualization_path?: string;
   cctv_locations: CCTVLocation[];
+  // 새로운 DB 조회 형식 필드
+  total_found?: number;
+  analysis_info?: {
+    location?: string;
+    latitude?: number;
+    longitude?: number;
+    source?: string;
+    message?: string;
+  };
 }
 
 const AbandonedVehiclePanel: React.FC = () => {
@@ -214,50 +223,67 @@ const AbandonedVehiclePanel: React.FC = () => {
       {results && (
         <>
           {results.status_message && (
-            <StatusMessage isClean={results.analysis.is_clean}>
+            <StatusMessage isClean={results.analysis?.is_clean}>
               {results.status_message}
             </StatusMessage>
           )}
 
-          <ResultsSection>
-            <SectionTitle>📈 분석 결과</SectionTitle>
+          {/* DB 조회 결과 표시 (새로운 형식) */}
+          {results.analysis_info && (
+            <ResultsSection>
+              <SectionTitle>💾 조회 결과</SectionTitle>
+              <MetadataText>
+                {results.analysis_info.message}
+                <br />
+                📍 위치: {results.analysis_info.location}
+              </MetadataText>
+            </ResultsSection>
+          )}
 
-            <StatsGrid>
-              <StatCard>
-                <StatLabel>탐지된 주차 공간</StatLabel>
-                <StatValue>{results.analysis.total_parking_spaces_detected}</StatValue>
-              </StatCard>
-              <StatCard>
-                <StatLabel>분석된 공간</StatLabel>
-                <StatValue>{results.analysis.spaces_analyzed}</StatValue>
-              </StatCard>
-              <StatCard highlight>
-                <StatLabel>방치 차량 발견</StatLabel>
-                <StatValue>{results.analysis.abandoned_vehicles_found}</StatValue>
-              </StatCard>
-              <StatCard>
-                <StatLabel>탐지 임계값</StatLabel>
-                <StatValue>{(results.analysis.detection_threshold * 100).toFixed(0)}%</StatValue>
-              </StatCard>
-            </StatsGrid>
+          {/* 실시간 분석 결과 표시 (기존 형식) */}
+          {results.analysis && (
+            <ResultsSection>
+              <SectionTitle>📈 분석 결과</SectionTitle>
 
-            <MetadataSection>
-              <MetadataCard>
-                <MetadataTitle>📅 2015년 항공사진</MetadataTitle>
-                <MetadataText>
-                  촬영일: {results.metadata.image1.date}<br />
-                  위치: {results.metadata.image1.location}
-                </MetadataText>
-              </MetadataCard>
-              <MetadataCard>
-                <MetadataTitle>📅 2020년 항공사진</MetadataTitle>
-                <MetadataText>
-                  촬영일: {results.metadata.image2.date}<br />
-                  위치: {results.metadata.image2.location}
-                </MetadataText>
-              </MetadataCard>
-            </MetadataSection>
-          </ResultsSection>
+              <StatsGrid>
+                <StatCard>
+                  <StatLabel>탐지된 주차 공간</StatLabel>
+                  <StatValue>{results.analysis.total_parking_spaces_detected}</StatValue>
+                </StatCard>
+                <StatCard>
+                  <StatLabel>분석된 공간</StatLabel>
+                  <StatValue>{results.analysis.spaces_analyzed}</StatValue>
+                </StatCard>
+                <StatCard highlight>
+                  <StatLabel>방치 차량 발견</StatLabel>
+                  <StatValue>{results.analysis.abandoned_vehicles_found}</StatValue>
+                </StatCard>
+                <StatCard>
+                  <StatLabel>탐지 임계값</StatLabel>
+                  <StatValue>{(results.analysis.detection_threshold * 100).toFixed(0)}%</StatValue>
+                </StatCard>
+              </StatsGrid>
+
+              {results.metadata && (
+                <MetadataSection>
+                  <MetadataCard>
+                    <MetadataTitle>📅 2015년 항공사진</MetadataTitle>
+                    <MetadataText>
+                      촬영일: {results.metadata.image1.date}<br />
+                      위치: {results.metadata.image1.location}
+                    </MetadataText>
+                  </MetadataCard>
+                  <MetadataCard>
+                    <MetadataTitle>📅 2020년 항공사진</MetadataTitle>
+                    <MetadataText>
+                      촬영일: {results.metadata.image2.date}<br />
+                      위치: {results.metadata.image2.location}
+                    </MetadataText>
+                  </MetadataCard>
+                </MetadataSection>
+              )}
+            </ResultsSection>
+          )}
 
           {results.abandoned_vehicles.length > 0 ? (
             <AbandonedVehiclesSection>
@@ -316,20 +342,32 @@ const AbandonedVehiclePanel: React.FC = () => {
               <NoVehiclesIcon>✅</NoVehiclesIcon>
               <NoVehiclesTitle>방치 차량이 발견되지 않았습니다</NoVehiclesTitle>
               <NoVehiclesText>
-                분석 결과, 유사도 {(results.analysis.detection_threshold * 100).toFixed(0)}% 이상인 방치 의심 차량이 없습니다.
-                <br />
-                해당 지역은 정상적으로 관리되고 있는 것으로 보입니다.
+                {results.analysis ? (
+                  <>
+                    분석 결과, 유사도 {(results.analysis.detection_threshold * 100).toFixed(0)}% 이상인 방치 의심 차량이 없습니다.
+                    <br />
+                    해당 지역은 정상적으로 관리되고 있는 것으로 보입니다.
+                  </>
+                ) : (
+                  <>
+                    해당 지역에서 방치 차량이 발견되지 않았습니다.
+                    <br />
+                    데이터는 6시간마다 자동으로 업데이트됩니다.
+                  </>
+                )}
               </NoVehiclesText>
-              <NoVehiclesStats>
-                <StatItem>
-                  <StatItemLabel>분석된 주차 공간</StatItemLabel>
-                  <StatItemValue>{results.analysis.spaces_analyzed}개</StatItemValue>
-                </StatItem>
-                <StatItem>
-                  <StatItemLabel>탐지 임계값</StatItemLabel>
-                  <StatItemValue>{(results.analysis.detection_threshold * 100).toFixed(0)}%</StatItemValue>
-                </StatItem>
-              </NoVehiclesStats>
+              {results.analysis && (
+                <NoVehiclesStats>
+                  <StatItem>
+                    <StatItemLabel>분석된 주차 공간</StatItemLabel>
+                    <StatItemValue>{results.analysis.spaces_analyzed}개</StatItemValue>
+                  </StatItem>
+                  <StatItem>
+                    <StatItemLabel>탐지 임계값</StatItemLabel>
+                    <StatItemValue>{(results.analysis.detection_threshold * 100).toFixed(0)}%</StatItemValue>
+                  </StatItem>
+                </NoVehiclesStats>
+              )}
             </NoAbandonedVehiclesSection>
           )}
 
