@@ -88,6 +88,9 @@ async def global_exception_handler(request, exc):
         }
     )
 
+# Create logs directory BEFORE initializing logging
+os.makedirs('logs', exist_ok=True)
+
 # Initialize logging
 setup_logging(
     log_level='INFO',
@@ -111,9 +114,6 @@ validator = InputValidator()
 
 # Store uploaded files temporarily
 UPLOAD_DIR = tempfile.mkdtemp()
-
-# Create logs directory
-os.makedirs('logs', exist_ok=True)
 
 
 # Rate limiting middleware

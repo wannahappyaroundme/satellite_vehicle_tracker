@@ -9,6 +9,7 @@ services:
     branch: main
     rootDir: backend
     buildCommand: |
+      apt-get update && apt-get install -y poppler-utils
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: "uvicorn fastapi_app:app --host 0.0.0.0 --port $PORT"
