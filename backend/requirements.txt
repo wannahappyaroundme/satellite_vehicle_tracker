@@ -43,6 +43,7 @@ pyproj==3.6.1
 requests==2.31.0
 urllib3==2.1.0
 httpx==0.25.2  # Async HTTP client for FastAPI
+aiohttp==3.9.1  # Async HTTP for CCTV integration
 
 # Task Scheduling
 apscheduler==3.10.4  # Auto-scheduler for abandoned vehicle analysis
