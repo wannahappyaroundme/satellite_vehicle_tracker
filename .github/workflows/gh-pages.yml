@@ -39,7 +39,8 @@ jobs:
         cd frontend
         npm run build
       env:
-        REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL || 'https://your-backend-domain.com/api' }}
+        REACT_APP_API_URL: https://satellite-vehicle-backend.onrender.com/api
+        REACT_APP_FASTAPI_URL: https://satellite-vehicle-backend.onrender.com/api
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
