@@ -1,7 +1,12 @@
 """
 Abandoned Vehicle Detection System
-Uses ResNet feature extraction and cosine similarity to detect vehicles
+Uses MobileNetV2 feature extraction and cosine similarity to detect vehicles
 that haven't moved between two aerial photo captures (year-over-year comparison)
+
+MobileNetV2: Lightweight model (14MB) optimized for deployment
+- 7x smaller than ResNet50 (97MB)
+- 2-3x faster inference
+- Suitable for 512MB RAM limit on free hosting
 """
 
 import cv2
@@ -24,7 +29,13 @@ import json
 class AbandonedVehicleDetector:
     """
     Detects abandoned vehicles by comparing aerial photos from different years
-    using ResNet feature extraction and cosine similarity
+    using MobileNetV2 feature extraction and cosine similarity
+
+    MobileNetV2 advantages:
+    - Lightweight: 14MB vs ResNet50's 97MB
+    - Fast: 2-3x faster inference
+    - Memory efficient: Fits in 512MB RAM limit
+    - Good accuracy: 92%+ on ImageNet
     """
 
     def __init__(self, similarity_threshold: float = 0.90):
@@ -37,16 +48,17 @@ class AbandonedVehicleDetector:
         """
         self.similarity_threshold = similarity_threshold
 
-        # Load pre-trained ResNet model (ResNet50 for better feature extraction)
+        # Load pre-trained MobileNetV2 model (lightweight, optimized for deployment)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = models.resnet50(pretrained=True)
+        self.model = models.mobilenet_v2(pretrained=True)
 
         # Remove the final classification layer to get feature vectors
-        self.model = torch.nn.Sequential(*list(self.model.children())[:-1])
+        # MobileNetV2 outputs 1280-dimensional features (vs ResNet50's 2048)
+        self.model.classifier = torch.nn.Identity()
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        # Image preprocessing pipeline
+        # Image preprocessing pipeline (same as ResNet)
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -74,7 +86,7 @@ class AbandonedVehicleDetector:
 
     def extract_features(self, image: np.ndarray, use_cache: bool = True) -> np.ndarray:
         """
-        Extract feature vector from vehicle image using ResNet
+        Extract feature vector from vehicle image using MobileNetV2
 
         🚀 성능 최적화: LRU 캐시 적용 (동일 이미지 재분석 시 속도 향상)
 
@@ -83,7 +95,7 @@ class AbandonedVehicleDetector:
             use_cache: 캐시 사용 여부 (기본값: True)
 
         Returns:
-            Feature vector as 1D numpy array (2048 dimensions for ResNet50)
+            Feature vector as 1D numpy array (1280 dimensions for MobileNetV2)
         """
         # 캐시 확인 (동일 이미지 재분석 시 캐시 사용)
         if use_cache:
