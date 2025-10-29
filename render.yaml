@@ -1,20 +1,23 @@
 services:
-  # FastAPI Backend Service
+  # FastAPI Backend Service (No Docker!)
   - type: web
     name: satellite-vehicle-backend
+    runtime: python
     env: python
     region: oregon
     plan: free
     branch: main
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: "uvicorn fastapi_app:app --host 0.0.0.0 --port $PORT"
     envVars:
-      - key: PORT
-        value: 10000
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: DATABASE_URL
         value: sqlite:///./abandoned_vehicles.db
+      - key: OPENCV_HEADLESS
+        value: "1"
     healthCheckPath: /api/health
     autoDeploy: true
