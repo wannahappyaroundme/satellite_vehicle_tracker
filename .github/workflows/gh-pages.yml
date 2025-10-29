@@ -39,8 +39,8 @@ jobs:
         cd frontend
         npm run build
       env:
-        REACT_APP_API_URL: https://satellite-vehicle-tracker.onrender.com/api
-        REACT_APP_FASTAPI_URL: https://satellite-vehicle-tracker.onrender.com/api
+        REACT_APP_API_URL: https://unglacially-haunting-jaylah.ngrok-free.dev/api
+        REACT_APP_FASTAPI_URL: https://unglacially-haunting-jaylah.ngrok-free.dev/api
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
