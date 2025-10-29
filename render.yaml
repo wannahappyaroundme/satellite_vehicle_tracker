@@ -17,7 +17,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: DATABASE_URL
-        value: sqlite:///./abandoned_vehicles.db
+        value: sqlite:///./satellite_tracker.db
       - key: OPENCV_HEADLESS
         value: "1"
     healthCheckPath: /api/health

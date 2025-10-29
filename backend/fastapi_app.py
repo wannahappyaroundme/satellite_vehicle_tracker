@@ -366,11 +366,23 @@ def prepopulate_sample_data():
 
 @app.on_event("startup")
 async def startup_event():
-    """앱 시작 시 스케줄러 시작 + 최초 DB 체크/채우기"""
-    from database import SessionLocal, engine
+    """앱 시작 시 DB 테이블 생성 + 스케줄러 시작 + 최초 DB 체크/채우기"""
+    from database import SessionLocal, engine, Base
     from models_sqlalchemy import AbandonedVehicle
 
-    # 1. 샘플 데이터 미리 채우기 (최우선)
+    # 0. 데이터베이스 테이블 자동 생성 (최우선!)
+    logger.info("=" * 60)
+    logger.info("🔧 데이터베이스 테이블 초기화 중...")
+    logger.info("=" * 60)
+
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ 데이터베이스 테이블 생성/확인 완료")
+    except Exception as e:
+        logger.error(f"❌ 데이터베이스 초기화 실패: {e}")
+        raise
+
+    # 1. 샘플 데이터 미리 채우기
     prepopulate_sample_data()
 
     # 2. DB 체크: 비어있으면 초기 데이터 미리 채우기

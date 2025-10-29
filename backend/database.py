@@ -8,7 +8,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Database URL (SQLite for development)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./abandoned_vehicles.db")
+# Use satellite_tracker.db for consistency with existing data
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./satellite_tracker.db")
 
 # Create engine
 engine = create_engine(
