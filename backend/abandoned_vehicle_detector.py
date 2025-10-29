@@ -14,9 +14,10 @@ from typing import List, Dict, Tuple, Any
 from sklearn.metrics.pairwise import cosine_similarity
 from functools import lru_cache
 import hashlib
-import rasterio
-from rasterio.mask import mask
-from shapely.geometry import box, mapping
+# GeoTIFF 지원 비활성화 (프로젝트에서 PDF만 사용)
+# import rasterio
+# from rasterio.mask import mask
+# from shapely.geometry import box, mapping
 import json
 
 
@@ -138,36 +139,38 @@ class AbandonedVehicleDetector:
 
         return float(similarity)
 
-    def crop_parking_space(
-        self,
-        geotiff_path: str,
-        parking_geojson: Dict[str, Any]
-    ) -> np.ndarray:
-        """
-        Crop parking space from GeoTIFF using GeoJSON coordinates
-
-        Args:
-            geotiff_path: Path to GeoTIFF aerial photo
-            parking_geojson: GeoJSON feature containing parking space polygon
-
-        Returns:
-            Cropped image as numpy array
-        """
-        with rasterio.open(geotiff_path) as src:
-            # Extract geometry from GeoJSON
-            geometry = parking_geojson['geometry']
-
-            # Crop the image
-            out_image, out_transform = mask(src, [geometry], crop=True)
-
-            # Convert to numpy array (channels last)
-            out_image = np.transpose(out_image, (1, 2, 0))
-
-            # Convert to uint8 if needed
-            if out_image.dtype != np.uint8:
-                out_image = (out_image / out_image.max() * 255).astype(np.uint8)
-
-            return out_image
+    # GeoTIFF 지원 비활성화 - 이 기능은 정의되었지만 실제로 사용되지 않음
+    # 프로젝트는 PDF 처리만 사용 (pdf_processor.py 참조)
+    # def crop_parking_space(
+    #     self,
+    #     geotiff_path: str,
+    #     parking_geojson: Dict[str, Any]
+    # ) -> np.ndarray:
+    #     """
+    #     Crop parking space from GeoTIFF using GeoJSON coordinates
+    #
+    #     Args:
+    #         geotiff_path: Path to GeoTIFF aerial photo
+    #         parking_geojson: GeoJSON feature containing parking space polygon
+    #
+    #     Returns:
+    #         Cropped image as numpy array
+    #     """
+    #     with rasterio.open(geotiff_path) as src:
+    #         # Extract geometry from GeoJSON
+    #         geometry = parking_geojson['geometry']
+    #
+    #         # Crop the image
+    #         out_image, out_transform = mask(src, [geometry], crop=True)
+    #
+    #         # Convert to numpy array (channels last)
+    #         out_image = np.transpose(out_image, (1, 2, 0))
+    #
+    #         # Convert to uint8 if needed
+    #         if out_image.dtype != np.uint8:
+    #             out_image = (out_image / out_image.max() * 255).astype(np.uint8)
+    #
+    #         return out_image
 
     def detect_abandoned_vehicles(
         self,
@@ -238,54 +241,55 @@ class AbandonedVehicleDetector:
         else:
             return 'LOW'
 
-    def batch_detect_abandoned_vehicles(
-        self,
-        parking_spaces: List[Dict[str, Any]],
-        geotiff_year1: str,
-        geotiff_year2: str,
-        year1: int,
-        year2: int
-    ) -> List[Dict[str, Any]]:
-        """
-        Batch process multiple parking spaces from GeoTIFF files
-
-        Args:
-            parking_spaces: List of GeoJSON parking space features
-            geotiff_year1: Path to first year GeoTIFF
-            geotiff_year2: Path to second year GeoTIFF
-            year1: First year
-            year2: Second year
-
-        Returns:
-            List of detection results for all parking spaces
-        """
-        results = []
-
-        for i, parking_space in enumerate(parking_spaces):
-            try:
-                # Crop images for this parking space
-                image1 = self.crop_parking_space(geotiff_year1, parking_space)
-                image2 = self.crop_parking_space(geotiff_year2, parking_space)
-
-                # Get parking space ID from properties or use index
-                space_id = parking_space.get('properties', {}).get('id', f'space_{i}')
-
-                # Detect abandoned vehicle
-                result = self.detect_abandoned_vehicles(
-                    image1, image2, year1, year2, space_id
-                )
-
-                # Add geometry information
-                result['geometry'] = parking_space['geometry']
-                result['properties'] = parking_space.get('properties', {})
-
-                results.append(result)
-
-            except Exception as e:
-                print(f"Error processing parking space {i}: {str(e)}")
-                continue
-
-        return results
+    # GeoTIFF 배치 처리 비활성화 - crop_parking_space()를 호출하므로 함께 비활성화
+    # def batch_detect_abandoned_vehicles(
+    #     self,
+    #     parking_spaces: List[Dict[str, Any]],
+    #     geotiff_year1: str,
+    #     geotiff_year2: str,
+    #     year1: int,
+    #     year2: int
+    # ) -> List[Dict[str, Any]]:
+    #     """
+    #     Batch process multiple parking spaces from GeoTIFF files
+    #
+    #     Args:
+    #         parking_spaces: List of GeoJSON parking space features
+    #         geotiff_year1: Path to first year GeoTIFF
+    #         geotiff_year2: Path to second year GeoTIFF
+    #         year1: First year
+    #         year2: Second year
+    #
+    #     Returns:
+    #         List of detection results for all parking spaces
+    #     """
+    #     results = []
+    #
+    #     for i, parking_space in enumerate(parking_spaces):
+    #         try:
+    #             # Crop images for this parking space
+    #             image1 = self.crop_parking_space(geotiff_year1, parking_space)
+    #             image2 = self.crop_parking_space(geotiff_year2, parking_space)
+    #
+    #             # Get parking space ID from properties or use index
+    #             space_id = parking_space.get('properties', {}).get('id', f'space_{i}')
+    #
+    #             # Detect abandoned vehicle
+    #             result = self.detect_abandoned_vehicles(
+    #                 image1, image2, year1, year2, space_id
+    #             )
+    #
+    #             # Add geometry information
+    #             result['geometry'] = parking_space['geometry']
+    #             result['properties'] = parking_space.get('properties', {})
+    #
+    #             results.append(result)
+    #
+    #         except Exception as e:
+    #             print(f"Error processing parking space {i}: {str(e)}")
+    #             continue
+    #
+    #     return results
 
     def compare_pdf_images(
         self,
