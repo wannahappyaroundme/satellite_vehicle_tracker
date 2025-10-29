@@ -31,15 +31,12 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p uploads models
 
-# Download YOLO model
-RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
-
 # Expose port
-EXPOSE 5000
+EXPOSE 8000
 
 # Set environment variables
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
+ENV PORT=8000
+ENV PYTHON_VERSION=3.11.0
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application with uvicorn
+CMD uvicorn fastapi_app:app --host 0.0.0.0 --port ${PORT:-8000}
