@@ -76,11 +76,35 @@ const AbandonedVehiclePanel: React.FC = () => {
   const runAnalysis = async () => {
     setLoading(true);
     try {
+      const startTime = performance.now();
       const response = await axios.post(`${API_BASE_URL}/api/compare-samples`);
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
+
+      console.log(`⚡ API 응답 시간: ${responseTime}ms (source: ${response.data.source})`);
+
       setResults(response.data);
+
+      // 성공 메시지 표시 (DB 조회인 경우 초고속 응답 강조)
+      if (response.data.source === 'DB') {
+        alert(`✅ 분석 완료!\n\n⚡ DB 조회 응답 시간: ${responseTime}ms\n📊 발견된 방치 차량: ${response.data.abandoned_vehicles?.length || 0}대`);
+      }
     } catch (error: any) {
       console.error('Analysis failed:', error);
-      alert(`분석 실패: ${error.response?.data?.detail || error.message}`);
+
+      // 에러 메시지 개선 (한국어 + 연락처)
+      const errorDetail = error.response?.data?.detail || error.message;
+      const errorContact = error.response?.data?.error?.contact;
+
+      let errorMessage = `❌ 분석 실패\n\n${errorDetail}`;
+
+      if (errorContact) {
+        errorMessage += `\n\n문제가 지속되면 연락주세요:\n📧 ${errorContact.email}\n📞 ${errorContact.phone}`;
+      } else {
+        errorMessage += `\n\n문제가 지속되면 연락주세요:\n📧 bu5119@hanyang.ac.kr\n📞 010-5616-5119`;
+      }
+
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -193,7 +217,7 @@ const AbandonedVehiclePanel: React.FC = () => {
         </InfoBox>
 
         <AnalyzeButton onClick={runAnalysis} disabled={loading}>
-          {loading ? '분석 중...' : '샘플 이미지 분석 시작'}
+          {loading ? '⚡ DB에서 결과 불러오는 중...' : '샘플 이미지 분석 시작 (초고속 DB 조회)'}
         </AnalyzeButton>
 
         <LocationSearchSection>
