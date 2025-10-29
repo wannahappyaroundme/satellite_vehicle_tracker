@@ -40,25 +40,19 @@ class AbandonedVehicleDetector:
 
     def __init__(self, similarity_threshold: float = 0.90):
         """
-        Initialize the abandoned vehicle detector
+        Initialize the abandoned vehicle detector with lazy model loading
 
         Args:
             similarity_threshold: Minimum cosine similarity (0-1) to consider a vehicle as abandoned
                                  Default 0.90 (90%) as per requirements
         """
         self.similarity_threshold = similarity_threshold
-
-        # Load pre-trained MobileNetV2 model (lightweight, optimized for deployment)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = models.mobilenet_v2(pretrained=True)
 
-        # Remove the final classification layer to get feature vectors
-        # MobileNetV2 outputs 1280-dimensional features (vs ResNet50's 2048)
-        self.model.classifier = torch.nn.Identity()
-        self.model = self.model.to(self.device)
-        self.model.eval()
+        # ⚡ Lazy loading: model is None until first use (fast startup!)
+        self.model = None
 
-        # Image preprocessing pipeline (same as ResNet)
+        # Image preprocessing pipeline (lightweight, no model loading)
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -71,6 +65,25 @@ class AbandonedVehicleDetector:
         # Feature extraction cache (LRU cache for performance optimization)
         self._feature_cache = {}
         self._cache_max_size = 100  # 최대 100개 이미지 캐싱
+
+    def _ensure_model_loaded(self):
+        """
+        Load model on first use (lazy loading)
+        ⚡ This prevents blocking during app startup!
+        """
+        if self.model is None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("📥 Loading MobileNetV2 model (first use only)...")
+
+            self.model = models.mobilenet_v2(pretrained=True)
+            # Remove the final classification layer to get feature vectors
+            # MobileNetV2 outputs 1280-dimensional features (vs ResNet50's 2048)
+            self.model.classifier = torch.nn.Identity()
+            self.model = self.model.to(self.device)
+            self.model.eval()
+
+            logger.info("✅ Model loaded successfully")
 
     def _get_image_hash(self, image: np.ndarray) -> str:
         """
@@ -97,6 +110,9 @@ class AbandonedVehicleDetector:
         Returns:
             Feature vector as 1D numpy array (1280 dimensions for MobileNetV2)
         """
+        # ⚡ Ensure model is loaded (happens only once on first use)
+        self._ensure_model_loaded()
+
         # 캐시 확인 (동일 이미지 재분석 시 캐시 사용)
         if use_cache:
             image_hash = self._get_image_hash(image)
