@@ -123,6 +123,7 @@ Networking:
 ```
 
 **왜 Dual-stack이 필요한가?**
+
 - 고정 IP는 **IPv4만 지원**
 - 프론트엔드(GitHub Pages)는 IPv4 필요
 - IPv6 only 선택 시 고정 IP 할당 불가!
@@ -144,6 +145,7 @@ Choose your instance plan:
 ```
 
 **비용 정리:**
+
 - IPv6 only + $3.50/월 = 고정 IP 불가 ❌
 - Dual-stack + $5/월 = 고정 IP 가능 ✅ (권장)
 
@@ -224,7 +226,7 @@ Tags (Optional):
 
 ```
 📝 메모장에 기록:
-고정 IP: 3.38.75.221 (예시 - 당신의 실제 IP를 기록하세요!)
+고정 IP: 3.38.75.221 (할당 받음)
 
 이 IP는:
 - IPv4 주소 (Dual-stack 플랜에서만 가능)
@@ -340,16 +342,16 @@ chmod +x lightsail-startup.sh
 
 ```bash
 # 1. 백엔드 헬스 체크
-curl http://YOUR_STATIC_IP/api/health
+curl http://3.38.75.221/api/health
 
 # 응답 예시:
 # {"status":"healthy","timestamp":"2025-10-30T06:15:02.408707","services":{"abandoned_vehicle_detector":"ready","pdf_processor":"ready"}}
 
 # 2. 방치 차량 데이터 확인
-curl http://YOUR_STATIC_IP/api/abandoned-vehicles
+curl http://3.38.75.221/api/abandoned-vehicles
 
 # 3. API 문서 확인 (브라우저에서)
-# http://YOUR_STATIC_IP/docs
+# http://Y3.38.75.221/docs
 ```
 
 ---
@@ -551,18 +553,18 @@ sudo systemctl restart nginx
 
 ## 비교: Lightsail vs ngrok vs Render
 
-| 항목            | AWS Lightsail   | ngrok                 | Render                   |
-| --------------- | --------------- | --------------------- | ------------------------ |
-| **비용**        | $5/월           | 무료 (제한적)         | 무료 (512MB)             |
-| **메모리**      | 1GB RAM         | 로컬 PC 사양          | 512MB RAM                |
-| **안정성**      | ⭐⭐⭐⭐⭐      | ⭐⭐⭐ (로컬 PC 필요) | ⭐⭐⭐⭐ (타임아웃 이슈) |
-| **고정 IP**     | ✅ IPv4 무료    | ❌ URL 변경됨         | ✅ 고정 URL              |
-| **설정 난이도** | 쉬움            | 매우 쉬움             | 쉬움                     |
-| **컴퓨터 켜둠** | 불필요          | 필요 ❌               | 불필요                   |
-| **SQLite 저장** | ✅ 영구 (40GB)  | ✅ 영구               | ❌ 휘발성                |
-| **SSH 접속**    | ✅ 가능         | ❌ 불가               | ❌ 불가                  |
-| **스케일업**    | ✅ 쉬움         | ❌ 불가               | ⚠️ 유료                  |
-| **IPv4 지원**   | ✅ Dual-stack   | ✅                    | ✅                       |
+| 항목            | AWS Lightsail  | ngrok                 | Render                   |
+| --------------- | -------------- | --------------------- | ------------------------ |
+| **비용**        | $5/월          | 무료 (제한적)         | 무료 (512MB)             |
+| **메모리**      | 1GB RAM        | 로컬 PC 사양          | 512MB RAM                |
+| **안정성**      | ⭐⭐⭐⭐⭐     | ⭐⭐⭐ (로컬 PC 필요) | ⭐⭐⭐⭐ (타임아웃 이슈) |
+| **고정 IP**     | ✅ IPv4 무료   | ❌ URL 변경됨         | ✅ 고정 URL              |
+| **설정 난이도** | 쉬움           | 매우 쉬움             | 쉬움                     |
+| **컴퓨터 켜둠** | 불필요         | 필요 ❌               | 불필요                   |
+| **SQLite 저장** | ✅ 영구 (40GB) | ✅ 영구               | ❌ 휘발성                |
+| **SSH 접속**    | ✅ 가능        | ❌ 불가               | ❌ 불가                  |
+| **스케일업**    | ✅ 쉬움        | ❌ 불가               | ⚠️ 유료                  |
+| **IPv4 지원**   | ✅ Dual-stack  | ✅                    | ✅                       |
 
 **결론:** Lightsail $5/월 플랜이 장기적으로 가장 안정적이고 비용 효율적입니다.
 
