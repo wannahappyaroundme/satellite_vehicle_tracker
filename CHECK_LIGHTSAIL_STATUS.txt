@@ -1,0 +1,68 @@
+# Lightsail 서버 상태 및 데이터 확인 명령어
+# Lightsail SSH에 복사해서 붙여넣으세요
+
+echo "=========================================="
+echo "1. 서비스 상태 확인"
+echo "=========================================="
+sudo supervisorctl status satellite-backend
+
+echo ""
+echo "=========================================="
+echo "2. 데이터베이스 차량 수 확인"
+echo "=========================================="
+cd /home/ubuntu/satellite_vehicle_tracker/backend
+source venv/bin/activate
+python3 << 'EOF'
+from database import get_db
+from models_sqlalchemy import AbandonedVehicle
+db = next(get_db())
+count = db.query(AbandonedVehicle).count()
+print(f"총 차량 수: {count}개")
+if count > 0:
+    print("\n최신 5개 차량:")
+    vehicles = db.query(AbandonedVehicle).order_by(AbandonedVehicle.created_at.desc()).limit(5).all()
+    for i, v in enumerate(vehicles, 1):
+        print(f"{i}. {v.vehicle_id} - {v.risk_level} - {v.address}")
+else:
+    print("❌ 데이터가 없습니다!")
+db.close()
+EOF
+
+echo ""
+echo "=========================================="
+echo "3. API 로컬 테스트"
+echo "=========================================="
+curl -s http://localhost:8000/api/health | python3 -c "import sys, json; print(json.dumps(json.load(sys.stdin), indent=2))" 2>/dev/null || echo "❌ API 응답 없음"
+
+echo ""
+echo "=========================================="
+echo "4. 차량 API 테스트"
+echo "=========================================="
+vehicle_count=$(curl -s http://localhost:8000/api/abandoned-vehicles 2>/dev/null | python3 -c "import sys, json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+if [ -n "$vehicle_count" ]; then
+    echo "✅ API에서 반환된 차량 수: ${vehicle_count}개"
+else
+    echo "❌ API 응답 실패"
+fi
+
+echo ""
+echo "=========================================="
+echo "5. Cloudflare Tunnel 상태"
+echo "=========================================="
+sudo systemctl status cloudflared --no-pager | head -10
+
+echo ""
+echo "=========================================="
+echo "6. 최근 에러 로그 (최근 20줄)"
+echo "=========================================="
+sudo tail -20 /var/log/satellite-backend.err.log 2>/dev/null || echo "에러 로그 없음"
+
+echo ""
+echo "=========================================="
+echo "✅ 확인 완료"
+echo "=========================================="
+echo ""
+echo "문제 해결:"
+echo "- 서비스가 실행 중이 아니면: sudo supervisorctl restart satellite-backend"
+echo "- 데이터가 0개이면: python seed_dummy_data.py"
+echo "- Cloudflare Tunnel이 중지되었으면: sudo systemctl restart cloudflared"
