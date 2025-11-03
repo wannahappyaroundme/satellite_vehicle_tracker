@@ -34,14 +34,15 @@
 
 ### 우리의 접근 방법
 
-본 시스템은 **VWorld 항공사진 API**와 **ResNet50 + YOLOv8 딥러닝 모델**을 결합하여 장기 방치 차량을 자동으로 탐지합니다.
+본 시스템은 **VWorld 항공사진 API**와 **MobileNetV2 + YOLOv8 딥러닝 모델**을 결합하여 장기 방치 차량을 자동으로 탐지합니다.
 
 **핵심 원리:**
 1. 위성 항공사진에서 YOLOv8로 차량 객체 탐지
-2. ResNet50으로 각 차량의 특징 벡터 추출
+2. MobileNetV2로 각 차량의 특징 벡터 추출 (경량화 모델)
 3. 시간대별 특징 비교를 통한 차량 이동 여부 판단 (코사인 유사도)
 4. AI 기반 유사도 분석으로 방치 여부 자동 판별
 5. 위험도 등급 분류 및 관리 우선순위 제공
+6. SQLite 데이터베이스에 탐지 결과 영구 저장
 
 ---
 
@@ -93,11 +94,11 @@
 ### 혁신적 기술 융합
 - **위성 항공사진**: 12cm 고해상도 VWorld WMTS API 활용 (5-10배 고속)
 - **차량 탐지**: YOLOv8 실시간 객체 탐지 (승용차, 트럭, 버스)
-- **딥러닝 AI**: ResNet50 특징 추출 + 코사인 유사도 분석
+- **딥러닝 AI**: MobileNetV2 특징 추출 (14MB 경량 모델) + 코사인 유사도 분석
 - **데이터 분석**: DBSCAN 클러스터링으로 차량 밀집 지역 자동 탐지
 - **지능형 캐싱**: 24시간 캐싱으로 API 호출 80% 절감, 응답 속도 100배 향상
 - **전국 DB 시스템**: 250개 시/군/구 좌표 + SQLite 기반 방치 차량 영구 저장
-- **자동화 스케줄러**: APScheduler로 12시간 간격 자동 전국 스캔
+- **자동화 스케줄러**: APScheduler로 6시간 간격 자동 전국 스캔 (0시, 6시, 12시, 18시)
 
 ### 성능 지표
 - **정확도**: 유사도 90% 이상 차량 탐지
@@ -143,8 +144,8 @@ VWorld WMTS (Web Map Tile Service)로 5-10배 빠른 항공사진 다운로드
 - **LOW**: 85% 미만
 
 ### 6. 자동 스케줄러 ⭐ NEW!
-APScheduler로 12시간 간격 전국 자동 스캔
-- ✅ 매일 0시, 12시 자동 실행
+APScheduler로 6시간 간격 전국 자동 스캔
+- ✅ 매일 0시, 6시, 12시, 18시 자동 실행 (하루 4회)
 - ✅ 250개 전국 시/군/구 순회 분석
 - ✅ 백그라운드 비동기 실행
 - ✅ 분석 이력 자동 DB 저장
@@ -268,13 +269,14 @@ npm start
 
 ### AI/ML
 - **YOLOv8** - 차량 탐지 (승용차/트럭/버스)
-- **ResNet50** - 특징 추출 (2048차원 벡터)
+- **MobileNetV2** - 경량 특징 추출 (1280차원 벡터, 14MB)
 - **코사인 유사도** - 차량 이동 여부 판단
 
 ### Database
-- **JSON 파일** - 방치 차량 영구 저장
+- **SQLite + SQLAlchemy** - 관계형 DB로 방치 차량 영구 저장
 - **Thread-safe** - 동시 접근 제어
-- **확장 가능** - 향후 PostgreSQL/MongoDB 전환 가능
+- **확장 가능** - AWS RDS PostgreSQL/MySQL로 전환 가능
+- **자동 스키마 생성** - 서버 시작 시 테이블 자동 생성
 
 ---
 
@@ -284,24 +286,64 @@ npm start
 satellite_vehicle_tracker/
 ├── backend/
 │   ├── fastapi_app.py              # FastAPI 메인 서버
-│   ├── abandoned_vehicle_detector.py  # ResNet50 방치 차량 탐지
-│   ├── abandoned_vehicle_storage.py   # JSON DB 관리
+│   ├── abandoned_vehicle_detector.py  # MobileNetV2 방치 차량 탐지
+│   ├── models_sqlalchemy.py        # SQLAlchemy ORM 모델
+│   ├── database.py                 # 데이터베이스 연결 설정
+│   ├── auto_scheduler.py           # 6시간 간격 자동 스케줄러
 │   ├── vehicle_detector.py         # YOLOv8 차량 탐지
+│   ├── vworld_wmts_service.py      # VWorld WMTS API 고속 다운로드
 │   ├── demo_mode.py                # 데모 모드 (API 키 불필요)
 │   ├── korea_coordinates.json      # 전국 250개 좌표
-│   ├── data/
-│   │   └── abandoned_vehicles_db.json  # 방치 차량 DB
+│   ├── satellite_tracker.db        # SQLite 데이터베이스 (자동 생성)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── MainDetectionPage.tsx
 │   │   │   ├── StatisticsDashboard.tsx
+│   │   │   ├── AdminDashboard.tsx
 │   │   │   └── ...
 │   │   └── App.tsx
 │   └── package.json
+├── lightsail-startup.sh            # AWS Lightsail 자동 배포 스크립트
+├── AWS_LIGHTSAIL_DEPLOYMENT.md     # AWS 배포 완벽 가이드
 └── README.md
 ```
+
+---
+
+## 🚀 배포하기
+
+### AWS Lightsail 배포 (추천)
+
+**비용:** 월 $3.50 (512MB RAM, 20GB SSD, 1TB 트래픽)
+**특징:** 24/7 운영, 고정 IP, 자동 재시작
+
+👉 **[AWS Lightsail 배포 완벽 가이드](./AWS_LIGHTSAIL_DEPLOYMENT.md)** 참고
+
+**간단 요약:**
+```bash
+# 1. AWS Lightsail 인스턴스 생성 (Ubuntu 22.04)
+# 2. SSH 접속
+ssh -i LightsailDefaultKey.pem ubuntu@YOUR_IP
+
+# 3. 자동 배포 스크립트 실행
+wget https://raw.githubusercontent.com/wannahappyaroundme/satellite_vehicle_tracker/main/lightsail-startup.sh
+chmod +x lightsail-startup.sh
+./lightsail-startup.sh
+```
+
+배포 스크립트가 자동으로 다음을 수행합니다:
+- Python 3.11 + 시스템 패키지 설치
+- 프로젝트 클론 및 가상환경 생성
+- Supervisor (자동 재시작) + Nginx (리버스 프록시) 설정
+- 서비스 시작
+
+### AWS RDS 데이터베이스 (선택 사항)
+
+프로덕션 환경에서는 SQLite 대신 AWS RDS를 사용할 수 있습니다.
+
+👉 **[AWS RDS 설정 가이드](#aws-rds-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4-%EC%84%A4%EC%A0%95)** 참고 (아래에서 자세히 설명)
 
 ---
 
@@ -385,6 +427,146 @@ satellite_vehicle_tracker/
 오픈소스를 통해 전 세계 도시들이 이 기술을 활용하고, 각자의 환경에 맞게 발전시켜 나가길 기대합니다.
 
 함께 더 나은 세상을 만들어갑시다.
+
+---
+
+---
+
+## 🗄️ AWS RDS 데이터베이스 설정
+
+프로덕션 환경에서는 SQLite 대신 AWS RDS를 사용하는 것을 권장합니다.
+
+### RDS vs SQLite 비교
+
+| 항목 | SQLite | AWS RDS |
+|------|--------|---------|
+| **비용** | 무료 | $15/월부터 |
+| **확장성** | 단일 서버 | 자동 스케일링 |
+| **백업** | 수동 | 자동 백업 |
+| **동시 접속** | 제한적 | 수천 명 |
+| **적합한 경우** | 개발/소규모 | 프로덕션/대규모 |
+
+### RDS PostgreSQL 설정 (추천)
+
+**1단계: AWS RDS 인스턴스 생성**
+
+```
+AWS Console → RDS → Create database
+→ Engine: PostgreSQL 16.x
+→ Template: Free tier (개발) 또는 Production (실전)
+→ DB instance identifier: satellite-tracker-db
+→ Master username: postgres
+→ Master password: [강력한 비밀번호 설정]
+→ DB instance class: db.t3.micro ($15/월) 또는 db.t4g.micro
+→ Storage: 20GB SSD
+→ Public access: Yes (Lightsail에서 접속하려면)
+→ VPC security group: default
+→ Initial database name: satellite_tracker
+```
+
+**2단계: 보안 그룹 설정**
+
+```
+EC2 Console → Security Groups → RDS 보안 그룹 선택
+→ Inbound rules → Edit
+→ Add rule:
+   Type: PostgreSQL
+   Port: 5432
+   Source: [Lightsail 고정 IP]/32
+```
+
+**3단계: DATABASE_URL 환경 변수 설정**
+
+Lightsail 인스턴스에 SSH 접속:
+
+```bash
+# .env 파일 수정
+cd /home/ubuntu/satellite_vehicle_tracker/backend
+nano .env
+
+# 다음 내용 추가:
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@YOUR_RDS_ENDPOINT:5432/satellite_tracker
+
+# 예시:
+# DATABASE_URL=postgresql://postgres:MyPassword123@satellite-tracker-db.abc123.ap-northeast-2.rds.amazonaws.com:5432/satellite_tracker
+```
+
+**4단계: PostgreSQL 드라이버 설치**
+
+```bash
+cd /home/ubuntu/satellite_vehicle_tracker/backend
+source venv/bin/activate
+pip install psycopg2-binary
+
+# 서비스 재시작
+sudo supervisorctl restart satellite-backend
+```
+
+**5단계: 데이터베이스 자동 마이그레이션**
+
+코드는 이미 준비되어 있습니다! `database.py`와 `models_sqlalchemy.py`가 자동으로:
+- PostgreSQL 감지
+- 테이블 자동 생성
+- SQLite 데이터 마이그레이션 (선택 사항)
+
+### RDS MySQL 설정 (대안)
+
+PostgreSQL 대신 MySQL을 사용하려면:
+
+```bash
+# 1. DATABASE_URL 변경
+DATABASE_URL=mysql+pymysql://admin:YOUR_PASSWORD@YOUR_RDS_ENDPOINT:3306/satellite_tracker
+
+# 2. MySQL 드라이버 설치
+pip install pymysql cryptography
+
+# 3. 서비스 재시작
+sudo supervisorctl restart satellite-backend
+```
+
+### SQLite에서 RDS로 데이터 마이그레이션
+
+기존 SQLite 데이터를 RDS로 이전:
+
+```bash
+# 1. SQLite DB 백업
+cd /home/ubuntu/satellite_vehicle_tracker/backend
+cp satellite_tracker.db satellite_tracker.db.backup
+
+# 2. 마이그레이션 스크립트 실행 (향후 제공 예정)
+# python migrate_sqlite_to_rds.py
+```
+
+### RDS 비용 최적화
+
+**Free Tier (1년 무료):**
+- db.t2.micro 또는 db.t3.micro
+- 20GB SSD 스토리지
+- 월 750시간 실행 가능 (24/7 운영 가능)
+
+**유료 플랜 ($15~30/월):**
+- db.t4g.micro: $12/월 (ARM 기반, 20% 저렴)
+- db.t3.micro: $15/월
+- 자동 백업 + 고가용성
+
+### 문제 해결
+
+**연결 실패 시:**
+```bash
+# 1. 보안 그룹 확인
+# RDS 콘솔 → 보안 그룹 → Inbound rules
+
+# 2. 연결 테스트
+psql -h YOUR_RDS_ENDPOINT -U postgres -d satellite_tracker
+
+# 3. 로그 확인
+sudo tail -f /var/log/satellite-backend.err.log
+```
+
+**성능 최적화:**
+- RDS 모니터링에서 CPU/메모리 사용량 확인
+- 인덱스 추가 (SQLAlchemy 모델에 이미 설정됨)
+- 연결 풀링 (SQLAlchemy가 자동 처리)
 
 ---
 

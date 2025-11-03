@@ -16,55 +16,232 @@
 
 ## 배포 단계
 
-### 1단계: AWS Lightsail 인스턴스 생성
+### 1단계: AWS 계정 생성 (처음 사용하는 경우)
 
-1. **AWS Lightsail 콘솔 접속**
+**AWS 계정이 없다면:**
+
+1. https://aws.amazon.com/ko/ 접속
+2. **"AWS 계정 생성"** 클릭
+3. **필요한 정보:**
+   - 이메일 주소
+   - 비밀번호
+   - AWS 계정 이름
+   - 연락처 정보
+   - 신용카드 정보 (첫 3개월 무료, 과금 없음)
+   - 전화번호 인증
+
+**중요:** AWS는 첫 12개월 무료 프리티어를 제공합니다!
+
+### 2단계: AWS Lightsail 인스턴스 생성
+
+#### 2-1. Lightsail 콘솔 접속
+
+1. **AWS Lightsail 접속**
    - https://lightsail.aws.amazon.com/
    - AWS 계정으로 로그인
 
-2. **인스턴스 생성**
-   - "Create instance" 클릭
-   - **리전 선택:** Asia Pacific (Seoul) ap-northeast-2
-   - **플랫폼:** Linux/Unix
-   - **운영체제:** Ubuntu 22.04 LTS
-   - **플랜:** $3.50/월 (512MB RAM)
-   - **인스턴스 이름:** satellite-backend
+2. **첫 화면에서 "Create instance" 버튼 클릭**
+   - 주황색 큰 버튼
 
-3. **SSH 키 다운로드**
-   - "Download default key" 클릭
-   - `LightsailDefaultKey-ap-northeast-2.pem` 파일 저장
+#### 2-2. 인스턴스 위치 선택
 
-4. **인스턴스 시작 대기**
-   - 약 1-2분 소요
-   - 상태가 "Running"이 될 때까지 대기
+```
+Instance location:
+→ Change AWS Region and Availability Zone 클릭
+
+Region: Asia Pacific (Seoul)
+Availability Zone: ap-northeast-2a (기본값)
+
+⚠️ 중요: 서울 리전 선택 필수! (가장 빠른 속도)
+```
+
+#### 2-3. 플랫폼 및 블루프린트 선택
+
+```
+Select a platform:
+→ ⭕ Linux/Unix (선택됨)
+
+Select a blueprint:
+→ OS Only 탭 선택
+→ Ubuntu 22.04 LTS 선택
+
+⚠️ Apps + OS가 아닌 OS Only를 선택하세요!
+```
+
+#### 2-4. Launch script (선택 사항)
+
+```
+Add launch script (Optional)
+→ 비워두기 (나중에 수동으로 설치)
+
+또는 아래 스크립트 붙여넣기 (자동 설치):
+```
+
+```bash
+#!/bin/bash
+apt-get update
+apt-get install -y git python3.11 python3.11-venv
+```
+
+#### 2-5. SSH 키 페어 선택
+
+```
+Change SSH key pair:
+→ Default 선택
+
+⚠️ 첫 사용이라면 "Download" 버튼 클릭!
+→ LightsailDefaultKey-ap-northeast-2.pem 저장
+→ 안전한 곳에 보관 (이 파일 없으면 SSH 접속 불가!)
+```
+
+#### 2-6. 인스턴스 플랜 선택
+
+```
+Choose your instance plan:
+
+첫 3개월 무료:
+→ $3.50 USD 플랜 선택
+   512 MB RAM
+   1 vCPU
+   20 GB SSD
+   1 TB transfer
+
+⚠️ $5 플랜이 아닌 $3.50 플랜 선택!
+```
+
+#### 2-7. 인스턴스 이름 및 태그
+
+```
+Identify your instance:
+→ satellite-backend
+
+Tags (Optional):
+→ Key: Project, Value: satellite-tracker (선택 사항)
+```
+
+#### 2-8. 인스턴스 생성
+
+```
+→ "Create instance" 버튼 클릭 (주황색)
+
+생성 시간: 약 1-2분
+상태: Pending → Running
+```
+
+### 3단계: 인스턴스 실행 확인
+
+1. **Lightsail 홈페이지에서 인스턴스 확인**
+   - 이름: satellite-backend
+   - 상태: ✅ Running (초록색)
+   - IP: 공용 IP 표시 (예: 13.125.123.45)
+
+2. **⚠️ 이 IP는 임시입니다!**
+   - 인스턴스 재시작 시 변경됨
+   - 다음 단계에서 고정 IP 할당 필수!
 
 ---
 
-### 2단계: 고정 IP 할당 (중요!)
+### 4단계: 고정 IP 할당 (매우 중요!)
 
-1. **Networking 탭 클릭**
-2. **"Create static IP" 클릭**
-3. **인스턴스 선택:** satellite-backend
-4. **이름:** satellite-backend-ip
-5. **Create 클릭**
+#### 왜 고정 IP가 필요한가?
 
-> **왜 필요한가?** 인스턴스를 재시작해도 IP가 바뀌지 않아 프론트엔드 연결이 안정적입니다.
+기본 공용 IP는 인스턴스 재시작 시 변경됩니다!
+→ 프론트엔드가 백엔드를 찾지 못함
+→ **고정 IP 필수!**
 
-**고정 IP 주소를 메모하세요!** (예: 13.125.123.45)
+#### 고정 IP 할당 방법
+
+1. **Lightsail 홈 → 인스턴스 (satellite-backend) 클릭**
+
+2. **"Networking" 탭 클릭**
+   - 화면 상단 메뉴
+
+3. **"Create static IP" 버튼 클릭**
+   - IPv4 Networking 섹션
+
+4. **고정 IP 설정:**
+   ```
+   Static IP location: ap-northeast-2 (자동 선택됨)
+
+   Attach to an instance: satellite-backend (선택)
+
+   Identify your static IP:
+   → satellite-backend-ip
+   ```
+
+5. **"Create" 버튼 클릭**
+
+6. **✅ 성공! 고정 IP 할당 완료**
+   ```
+   Static IP: 13.125.123.45 (예시)
+   Status: Attached
+   Instance: satellite-backend
+   ```
+
+#### ⚠️ 중요: 고정 IP 메모하기
+
+```
+📝 메모장에 기록:
+고정 IP: 13.125.123.45
+
+이 IP는:
+- 절대 변경되지 않음
+- 프론트엔드 연결에 사용
+- DNS 도메인 연결 가능
+```
+
+#### 고정 IP 비용
+
+- **인스턴스 연결 시:** 무료!
+- **미연결 시:** $0.005/시간 (약 $3.6/월)
+- **주의:** 인스턴스 삭제 전 고정 IP도 함께 삭제해야 과금 없음
 
 ---
 
-### 3단계: 방화벽 설정
+### 5단계: 방화벽 설정
 
-1. **Networking 탭에서 "Add rule" 클릭**
-2. **포트 80 (HTTP) 열기:**
-   - Application: HTTP
-   - Protocol: TCP
-   - Port: 80
-3. **포트 443 (HTTPS) 열기 (나중을 위해):**
-   - Application: HTTPS
-   - Protocol: TCP
-   - Port: 443
+Lightsail 인스턴스는 기본적으로 SSH(22)만 허용됩니다.
+HTTP(80) 포트를 열어야 브라우저에서 접속 가능!
+
+#### 방화벽 규칙 추가
+
+1. **인스턴스 페이지 → "Networking" 탭**
+
+2. **"IPv4 Firewall" 섹션에서 "Add rule" 클릭**
+
+3. **HTTP 포트 열기:**
+   ```
+   Application: HTTP
+   Protocol: TCP
+   Port or range: 80
+   Restricted to IP address: (비워두기 - 모든 IP 허용)
+   ```
+   → "Create" 클릭
+
+4. **HTTPS 포트 열기 (향후 SSL 인증서용):**
+   ```
+   Application: HTTPS
+   Protocol: TCP
+   Port or range: 443
+   Restricted to IP address: (비워두기)
+   ```
+   → "Create" 클릭
+
+#### ✅ 최종 방화벽 규칙 확인
+
+```
+Rule          Application  Protocol  Port range   Source
+-------------------------------------------------------------
+SSH           SSH          TCP       22           0.0.0.0/0
+HTTP          Custom       TCP       80           0.0.0.0/0
+HTTPS         Custom       TCP       443          0.0.0.0/0
+```
+
+#### 보안 팁
+
+- SSH(22)는 기본 허용, 변경 불필요
+- HTTP(80) 필수 (Nginx가 이 포트 사용)
+- HTTPS(443)는 나중에 SSL 인증서 설정 시 사용
 
 ---
 
