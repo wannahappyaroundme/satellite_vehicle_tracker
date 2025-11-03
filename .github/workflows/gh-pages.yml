@@ -39,8 +39,8 @@ jobs:
         cd frontend
         npm run build
       env:
-        REACT_APP_API_URL: https://jeff-nevada-occasional-convenient.trycloudflare.com/api
-        REACT_APP_FASTAPI_URL: https://jeff-nevada-occasional-convenient.trycloudflare.com/api
+        REACT_APP_API_URL: https://standings-classification-easy-textbook.trycloudflare.com/api
+        REACT_APP_FASTAPI_URL: https://standings-classification-easy-textbook.trycloudflare.com/api
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
