@@ -54,7 +54,7 @@ const AdminDashboard: React.FC = () => {
   // 통계 데이터 로드
   const loadStatistics = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/admin/statistics`);
+      const response = await axios.get(`${API_URL}/admin/statistics`);
       if (response.data.success) {
         setStatistics(response.data.statistics);
       }
@@ -67,7 +67,7 @@ const AdminDashboard: React.FC = () => {
   // 스케줄러 상태 로드
   const loadSchedulerStatus = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/admin/scheduler-status`);
+      const response = await axios.get(`${API_URL}/admin/scheduler-status`);
       if (response.data.success) {
         setSchedulerStatus(response.data.scheduler);
       }
@@ -79,7 +79,7 @@ const AdminDashboard: React.FC = () => {
   // 수동 분석 트리거
   const triggerAnalysis = async () => {
     try {
-      const response = await axios.post(`${API_URL}/api/admin/trigger-analysis`);
+      const response = await axios.post(`${API_URL}/admin/trigger-analysis`);
       if (response.data.success) {
         alert(response.data.message);
         // 통계 새로고침
