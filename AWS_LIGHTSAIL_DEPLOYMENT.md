@@ -2,15 +2,26 @@
 
 ## 비용 및 플랜
 
-### 추천 플랜: $3.50/월
-- **메모리:** 512MB RAM
+### 추천 플랜: $5/월 (Dual-stack)
+
+**⚠️ 중요: 고정 IP를 사용하려면 Dual-stack 필수!**
+
+- **메모리:** 1GB RAM
 - **CPU:** 1 vCPU
-- **스토리지:** 20GB SSD
-- **트래픽:** 1TB/월
-- **고정 IP:** 무료 포함
+- **스토리지:** 40GB SSD
+- **트래픽:** 2TB/월
+- **네트워킹:** Dual-stack (IPv4 + IPv6)
+- **고정 IP:** 무료 포함 (IPv4)
 - **첫 3개월 무료 체험 가능**
 
-이 플랜으로 MobileNetV2 + FastAPI를 충분히 실행할 수 있습니다.
+이 플랜으로 MobileNetV2 + FastAPI + SQLite를 충분히 실행할 수 있습니다.
+
+### 왜 $3.50 플랜은 안 되나요?
+
+- $3.50/월 플랜: **IPv6 only** → 고정 IP (IPv4) 사용 불가 ❌
+- $5/월 플랜: **Dual-stack** → 고정 IP (IPv4) 사용 가능 ✅
+
+**결론:** 프론트엔드 연결을 위해 고정 IP가 필요하므로 $5/월 플랜이 최소 요구사항입니다.
 
 ---
 
@@ -37,6 +48,7 @@
 #### 2-1. Lightsail 콘솔 접속
 
 1. **AWS Lightsail 접속**
+
    - https://lightsail.aws.amazon.com/
    - AWS 계정으로 로그인
 
@@ -94,32 +106,58 @@ Change SSH key pair:
 → 안전한 곳에 보관 (이 파일 없으면 SSH 접속 불가!)
 ```
 
-#### 2-6. 인스턴스 플랜 선택
+#### 2-6. 네트워킹 설정 (중요!)
+
+**⚠️ IPv4 vs IPv6 vs Dual-stack 선택:**
+
+```
+Networking:
+→ ⭕ Dual-stack (IPv4 and IPv6) 선택
+
+중요!
+- IPv6 only: IPv4 고정 IP 사용 불가 ❌
+- IPv4 only: 구형, 추천 안 함 ❌
+- Dual-stack: IPv4 + IPv6 둘 다 지원 ✅ (이것 선택!)
+
+⚠️ Dual-stack은 $5/월부터 시작합니다!
+```
+
+**왜 Dual-stack이 필요한가?**
+- 고정 IP는 **IPv4만 지원**
+- 프론트엔드(GitHub Pages)는 IPv4 필요
+- IPv6 only 선택 시 고정 IP 할당 불가!
+
+#### 2-7. 인스턴스 플랜 선택
 
 ```
 Choose your instance plan:
 
-첫 3개월 무료:
-→ $3.50 USD 플랜 선택
-   512 MB RAM
+⚠️ Dual-stack 사용 시 최소 플랜:
+→ $5.00 USD 플랜 선택 (Dual-stack 지원)
+   1 GB RAM
    1 vCPU
-   20 GB SSD
-   1 TB transfer
+   40 GB SSD
+   2 TB transfer
 
-⚠️ $5 플랜이 아닌 $3.50 플랜 선택!
+⚠️ $3.50 플랜은 IPv6 only라서 고정 IP 사용 불가!
+⚠️ 고정 IP 사용하려면 최소 $5 플랜 필요!
 ```
 
-#### 2-7. 인스턴스 이름 및 태그
+**비용 정리:**
+- IPv6 only + $3.50/월 = 고정 IP 불가 ❌
+- Dual-stack + $5/월 = 고정 IP 가능 ✅ (권장)
+
+#### 2-8. 인스턴스 이름 및 태그
 
 ```
 Identify your instance:
 → satellite-backend
 
 Tags (Optional):
-→ Key: Project, Value: satellite-tracker (선택 사항)
+→ Key: Project, Value: Satellite-Vehicle-Tracker (선택 사항)
 ```
 
-#### 2-8. 인스턴스 생성
+#### 2-9. 인스턴스 생성
 
 ```
 → "Create instance" 버튼 클릭 (주황색)
@@ -131,6 +169,7 @@ Tags (Optional):
 ### 3단계: 인스턴스 실행 확인
 
 1. **Lightsail 홈페이지에서 인스턴스 확인**
+
    - 이름: satellite-backend
    - 상태: ✅ Running (초록색)
    - IP: 공용 IP 표시 (예: 13.125.123.45)
@@ -154,12 +193,15 @@ Tags (Optional):
 1. **Lightsail 홈 → 인스턴스 (satellite-backend) 클릭**
 
 2. **"Networking" 탭 클릭**
+
    - 화면 상단 메뉴
 
 3. **"Create static IP" 버튼 클릭**
+
    - IPv4 Networking 섹션
 
 4. **고정 IP 설정:**
+
    ```
    Static IP location: ap-northeast-2 (자동 선택됨)
 
@@ -173,7 +215,7 @@ Tags (Optional):
 
 6. **✅ 성공! 고정 IP 할당 완료**
    ```
-   Static IP: 13.125.123.45 (예시)
+   Static IP: 3.38.75.221 (할당 받음)
    Status: Attached
    Instance: satellite-backend
    ```
@@ -182,9 +224,10 @@ Tags (Optional):
 
 ```
 📝 메모장에 기록:
-고정 IP: 13.125.123.45
+고정 IP: 3.38.75.221 (예시 - 당신의 실제 IP를 기록하세요!)
 
 이 IP는:
+- IPv4 주소 (Dual-stack 플랜에서만 가능)
 - 절대 변경되지 않음
 - 프론트엔드 연결에 사용
 - DNS 도메인 연결 가능
@@ -210,12 +253,14 @@ HTTP(80) 포트를 열어야 브라우저에서 접속 가능!
 2. **"IPv4 Firewall" 섹션에서 "Add rule" 클릭**
 
 3. **HTTP 포트 열기:**
+
    ```
    Application: HTTP
    Protocol: TCP
    Port or range: 80
    Restricted to IP address: (비워두기 - 모든 IP 허용)
    ```
+
    → "Create" 클릭
 
 4. **HTTPS 포트 열기 (향후 SSL 인증서용):**
@@ -280,6 +325,7 @@ chmod +x lightsail-startup.sh
 ```
 
 스크립트가 자동으로 다음을 수행합니다:
+
 - Python 3.11 설치
 - 시스템 의존성 설치 (poppler 등)
 - 프로젝트 클론
@@ -410,6 +456,7 @@ scp -i ~/Downloads/LightsailDefaultKey-ap-northeast-2.pem \
 ### 스냅샷 활용
 
 인스턴스 스냅샷을 생성하면:
+
 - 설정이 완료된 상태를 저장
 - 문제 발생 시 빠르게 복구
 - 다른 리전으로 복사 가능
@@ -421,11 +468,13 @@ Lightsail 콘솔 → Snapshots 탭 → Create snapshot
 ### 모니터링
 
 Lightsail 콘솔에서 무료로 제공:
+
 - CPU 사용률
 - 네트워크 트래픽
 - 디스크 사용량
 
 알림 설정:
+
 - Alarms 탭에서 CPU/네트워크 임계값 설정
 - 이메일 알림 받기
 
@@ -480,6 +529,7 @@ ps aux --sort=-%mem | head -10
 ```
 
 **해결 방법:**
+
 - $5/월 플랜으로 업그레이드 (1GB RAM)
 - Lightsail 콘솔에서 "Upgrade" 클릭
 
@@ -501,33 +551,60 @@ sudo systemctl restart nginx
 
 ## 비교: Lightsail vs ngrok vs Render
 
-| 항목 | AWS Lightsail | ngrok | Render |
-|------|--------------|-------|--------|
-| **비용** | $3.50/월 | 무료 (제한적) | 무료 (512MB) |
-| **안정성** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ (로컬 PC 필요) | ⭐⭐⭐⭐ (타임아웃 이슈) |
-| **고정 IP** | ✅ 무료 | ❌ URL 변경됨 | ✅ 고정 URL |
-| **설정 난이도** | 쉬움 | 매우 쉬움 | 쉬움 |
-| **컴퓨터 켜둠** | 불필요 | 필요 | 불필요 |
-| **SQLite 저장** | ✅ 영구 | ✅ 영구 | ❌ 휘발성 |
-| **SSH 접속** | ✅ 가능 | ❌ 불가 | ❌ 불가 |
-| **스케일업** | ✅ 쉬움 | ❌ 불가 | ⚠️ 유료 |
+| 항목            | AWS Lightsail   | ngrok                 | Render                   |
+| --------------- | --------------- | --------------------- | ------------------------ |
+| **비용**        | $5/월           | 무료 (제한적)         | 무료 (512MB)             |
+| **메모리**      | 1GB RAM         | 로컬 PC 사양          | 512MB RAM                |
+| **안정성**      | ⭐⭐⭐⭐⭐      | ⭐⭐⭐ (로컬 PC 필요) | ⭐⭐⭐⭐ (타임아웃 이슈) |
+| **고정 IP**     | ✅ IPv4 무료    | ❌ URL 변경됨         | ✅ 고정 URL              |
+| **설정 난이도** | 쉬움            | 매우 쉬움             | 쉬움                     |
+| **컴퓨터 켜둠** | 불필요          | 필요 ❌               | 불필요                   |
+| **SQLite 저장** | ✅ 영구 (40GB)  | ✅ 영구               | ❌ 휘발성                |
+| **SSH 접속**    | ✅ 가능         | ❌ 불가               | ❌ 불가                  |
+| **스케일업**    | ✅ 쉬움         | ❌ 불가               | ⚠️ 유료                  |
+| **IPv4 지원**   | ✅ Dual-stack   | ✅                    | ✅                       |
 
-**결론:** Lightsail이 장기적으로 가장 안정적이고 비용 효율적입니다.
+**결론:** Lightsail $5/월 플랜이 장기적으로 가장 안정적이고 비용 효율적입니다.
+
+### 총 비용 비교
+
+```
+옵션 1: Lightsail + SQLite
+- Lightsail $5/월
+- 합계: $5/월 ✅ (추천! RDS 불필요)
+
+옵션 2: Lightsail + RDS (프로덕션 대규모)
+- Lightsail $5/월
+- RDS PostgreSQL $14/월
+- 합계: $19/월 (대규모 트래픽 시)
+
+옵션 3: ngrok (무료)
+- 비용: $0
+- 단점: 컴퓨터 24/7 켜둬야 함, 전기료, URL 변경
+
+옵션 4: Render (무료)
+- 비용: $0
+- 단점: 타임아웃 이슈, SQLite 휘발성
+```
 
 ---
 
 ## 다음 단계
 
 1. ✅ **배포 완료**
+
    - http://YOUR_STATIC_IP/api/health 접속 확인
 
 2. 📱 **프론트엔드 연결**
+
    - GitHub Pages가 Lightsail IP로 API 호출
 
 3. 🔒 **HTTPS 설정 (선택)**
+
    - 도메인 구매 후 SSL 인증서 발급
 
 4. 📊 **모니터링**
+
    - Lightsail 알림 설정
    - 로그 정기 확인
 
@@ -540,6 +617,7 @@ sudo systemctl restart nginx
 ## 지원
 
 문제가 발생하면:
+
 1. 로그 확인: `sudo tail -f /var/log/satellite-backend.err.log`
 2. GitHub Issues에 문의
 3. AWS 지원 센터 (유료 플랜에서 제공)

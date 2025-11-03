@@ -316,8 +316,10 @@ satellite_vehicle_tracker/
 
 ### AWS Lightsail 배포 (추천)
 
-**비용:** 월 $3.50 (512MB RAM, 20GB SSD, 1TB 트래픽)
-**특징:** 24/7 운영, 고정 IP, 자동 재시작
+**비용:** 월 $5 (1GB RAM, 40GB SSD, 2TB 트래픽, Dual-stack)
+**특징:** 24/7 운영, 고정 IPv4, 자동 재시작, SQLite 영구 저장
+
+⚠️ **중요:** 고정 IP를 사용하려면 Dual-stack 플랜($5/월) 필수! IPv6 only($3.50/월)는 고정 IP 불가
 
 👉 **[AWS Lightsail 배포 완벽 가이드](./AWS_LIGHTSAIL_DEPLOYMENT.md)** 참고
 
