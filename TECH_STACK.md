@@ -9,6 +9,7 @@
 ## 🎯 핵심 기술 스택
 
 ### Frontend
+
 - **React 18** - 사용자 인터페이스
 - **TypeScript** - 타입 안전성
 - **Leaflet** - 지도 시각화 (OpenStreetMap 기반)
@@ -17,6 +18,7 @@
 - **React Hooks** - 상태 관리 (useState, useEffect)
 
 ### Backend
+
 - **FastAPI** - 고성능 Python 웹 프레임워크
 - **Python 3.11** - 메인 백엔드 언어
 - **SQLAlchemy** - ORM (Object-Relational Mapping)
@@ -24,6 +26,7 @@
 - **Uvicorn** - ASGI 서버
 
 ### AI/ML
+
 - **PyTorch** - 딥러닝 프레임워크
 - **MobileNetV2** - 경량 특징 추출 (1280차원, 14MB)
 - **YOLOv8** - 실시간 객체 탐지 (차량 탐지)
@@ -31,6 +34,7 @@
 - **DBSCAN** - 클러스터링 (차량 밀집 지역 탐지)
 
 ### Infrastructure
+
 - **AWS Lightsail** - 클라우드 호스팅 ($5/월, 1GB RAM)
 - **Cloudflare Tunnel** - 무료 HTTPS (systemd 서비스)
 - **GitHub Pages** - 정적 사이트 호스팅 (무료)
@@ -39,6 +43,7 @@
 - **Nginx** - 리버스 프록시 (포트 80 → 8000)
 
 ### APIs
+
 - **VWorld WMTS API** - 12cm 고해상도 항공사진 (5-10배 고속)
 - **VWorld POI Search API** - 장소 검색
 - **VWorld 2D/Hybrid Map API** - 지도 타일
@@ -205,6 +210,7 @@ CREATE TABLE abandoned_vehicles (
 **용도:** 차량 이미지에서 특징 벡터 추출
 
 **스펙:**
+
 - **입력:** 224×224 RGB 이미지
 - **출력:** 1280차원 특징 벡터
 - **모델 크기:** 14MB (경량)
@@ -212,6 +218,7 @@ CREATE TABLE abandoned_vehicles (
 - **추론 속도:** ~50ms/이미지 (CPU)
 
 **코드:**
+
 ```python
 from torchvision import models
 import torch.nn as nn
@@ -229,6 +236,7 @@ features = model(image_tensor)  # [1, 1280]
 **용도:** 위성 항공사진에서 차량 탐지
 
 **스펙:**
+
 - **모델:** YOLOv8n (nano)
 - **입력:** 640×640 이미지
 - **클래스:** small-vehicle, large-vehicle, truck
@@ -240,6 +248,7 @@ features = model(image_tensor)  # [1, 1280]
 **용도:** 시간대별 차량 이미지 비교
 
 **알고리즘:**
+
 ```python
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -254,6 +263,7 @@ if similarity >= 0.90:
 ```
 
 **위험도 분류:**
+
 - **CRITICAL:** similarity ≥ 95% AND years ≥ 3
 - **HIGH:** similarity ≥ 90% AND years ≥ 2
 - **MEDIUM:** similarity ≥ 85%
@@ -363,16 +373,19 @@ async def get_vehicles():
 ## 📈 확장 계획
 
 ### 단기 (1-3개월)
+
 - AWS RDS PostgreSQL 마이그레이션 (SQLite → PostgreSQL)
 - Redis 캐싱 레이어 추가
 - WebSocket 실시간 업데이트
 
 ### 중기 (3-6개월)
+
 - Kubernetes 배포 (Auto-scaling)
 - Elasticsearch 전문 검색
 - S3 이미지 저장소
 
 ### 장기 (6-12개월)
+
 - 커스텀 YOLOv8 모델 학습 (한국 차량 특화)
 - 모바일 앱 (React Native)
 - 관리자 대시보드 고도화
@@ -381,15 +394,15 @@ async def get_vehicles():
 
 ## 💰 비용 구조
 
-| 항목 | 서비스 | 비용 |
-|------|--------|------|
-| **백엔드 호스팅** | AWS Lightsail | $5/월 |
-| **HTTPS** | Cloudflare Tunnel | $0 (무료) |
-| **프론트엔드 호스팅** | GitHub Pages | $0 (무료) |
-| **CI/CD** | GitHub Actions | $0 (무료) |
-| **도메인** | Cloudflare | $0 (무료) |
-| **데이터베이스** | SQLite (로컬) | $0 (무료) |
-| **총 비용** | | **$5/월** |
+| 항목                  | 서비스            | 비용      |
+| --------------------- | ----------------- | --------- |
+| **백엔드 호스팅**     | AWS Lightsail     | $5/월     |
+| **HTTPS**             | Cloudflare Tunnel | $0 (무료) |
+| **프론트엔드 호스팅** | GitHub Pages      | $0 (무료) |
+| **CI/CD**             | GitHub Actions    | $0 (무료) |
+| **도메인**            | Cloudflare        | $0 (무료) |
+| **데이터베이스**      | SQLite (로컬)     | $0 (무료) |
+| **총 비용**           |                   | **$5/월** |
 
 ---
 
@@ -414,12 +427,14 @@ npm start  # Port 3000
 ### 환경 변수
 
 **Frontend (.env.development):**
+
 ```
 REACT_APP_API_URL=http://localhost:8000/api
 REACT_APP_FASTAPI_URL=http://localhost:8000/api
 ```
 
 **Frontend (.env.production):**
+
 ```
 REACT_APP_API_URL=https://standings-classification-easy-textbook.trycloudflare.com/api
 REACT_APP_FASTAPI_URL=https://standings-classification-easy-textbook.trycloudflare.com/api
